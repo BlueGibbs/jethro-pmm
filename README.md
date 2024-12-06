@@ -2,7 +2,7 @@
 
 At the moment I'm just playing around with SSO (Focused on OAuth/OIDC, but will consider SAML if there's enough interest). I trying to keep my changes as limited in scope as possible so they can eventually be rolled back into the original project. 
 
-That said, I really, really, *really* want a full API and potetially the capacity to interact with other systems for provisioning (SCIM? Maybe something to support custom RESTful calls?)
+That said, I really, really, *really* want a full API and potetially the capacity to interact with other systems for provisioning (SCIM? Maybe something to support custom RESTful calls?). Me, personally, I want to feed a self hosted IdP like [Authentic](https://github.com/goauthentik/authentik) or [Keycloak](https://www.keycloak.org/) in support of a range of community services for my local church.
 
 # Jethro Pastoral Ministry Manager
 
@@ -14,44 +14,18 @@ Jethro PMM is the software that powers online services such as [Easy Jethro](htt
 
 # Download and install
 
-Download the latest version of Jethro from the [releases page](https://github.com/tbar0970/jethro-pmm/releases)
-
-System requirements are:
-* MySQL 5.1 or above
-* PHP 5.3.0 or above
-    * with [gettext extension](https://www.php.net/manual/en/book.gettext.php) enabled
-    * [GD library](https://www.php.net/manual/en/book.image.php) recommended, to manage the size of uploaded photos
-    * with [curl extension](https://www.php.net/manual/en/book.curl.php) enabled, if you intend to use the Mailchimp integration
-* Some web server (apache suggested)
-
-The steps to install are:
-
-1. Unzip the files into a web-accessible folder on your web server
-2. Create a mysql database and database user for your jethro system to use. If asked, choose utf8_unicode_ci as the character set and collation.
-3. Edit Jethro's configuration file conf.php and fill in the essential details (system name, URL, database details).  Further explanation can be found inside the file.
-4. Open the jethro system URL in your web browser
-    In your web browser, the Jethro installer will start automatically and will prompt you for details to create the initial user account.  When the installer completes, it will prompt you to log into the installed system.
+Start with the official version [Jethro-PMM](https://github.com/tbar0970/jethro-pmm). The versions here are for experimentation and play. Please don't try and deploy my version in production. Seriously, just don't. I'd love to help, but I don't really have the time. I'm just scratching my itch... but hopefully it will eventually be able to help someone else.
 
 # Documentation
 
-## User Documentation
-
-Some documentation articles are hosted by [Easy Jethro](http://easyjethro.com.au/support/)
-
-## Technical Documentation
-
-* [Mailchimp Setup Guide](https://wiki.coastec.net.au/display/COAST/Configuring+Mailchimp+integration+in+Jethro) provided by Jeff Turner
+What does the programmer say about his documentation? No comment.
 
 # Support and Discussion
 
-If you're having trouble with Jethro and think you might have found a bug, please [open an issue on github](https://github.com/tbar0970/jethro-pmm/issues/new).
+If you're having trouble with this version of Jethro, go back and read the notes under download and install. If you need to ask, you should be using [Jethro-PMM](https://github.com/tbar0970/jethro-pmm).
 
 If you have an idea for a new feature, please [look if somebody has already requested it](https://github.com/tbar0970/jethro-pmm/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request) and if not, [open a new issue](https://github.com/tbar0970/jethro-pmm/issues/new).
 
-General questions about Jethro and how to use it can also be done in github issues
-
-The Jethro developers try to respond to issues in a timely manner, but for real-time support you may need to sign up for a hosting service such as [Easy Jethro](http://easyjethro.com.au).
- 
 # Data Model
 The following is a high-level overview of the objects in Jethro and how they relate.
 * A **person** has a name and various other properties.
