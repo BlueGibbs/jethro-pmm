@@ -1,3 +1,9 @@
+# Jethro Fork
+
+At the moment I'm just playing around with SSO (Focused on OAuth/OIDC, but will consider SAML if there's enough interest). I trying to keep my changes as limited in scope as possible so they can eventually be rolled back into the original project. 
+
+That said, I really, really, *really* want a full API and potetially the capacity to interact with other systems for provisioning (SCIM? Maybe something to support custom RESTful calls?)
+
 # Jethro Pastoral Ministry Manager
 
 Jethro Pastoral Ministry Manager is a web-based tool which helps churches keep track of people, families, groups, attendance, pastoral tasks, church services, rosters and documents.  Jethro doesn't force you to work in a particular way but gives you flexible, lightweight tools to support your own style of ministry.  
