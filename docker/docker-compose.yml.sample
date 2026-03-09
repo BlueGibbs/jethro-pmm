@@ -1,0 +1,100 @@
+services:
+  php_jethrodev:
+    build:
+      context: ./php
+    container_name: php_jethrodev
+    environment:
+      DB_DATABASE: ${MYSQL_DATABASE}
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_HOST: 'mysql_jethrodev'
+      DB_TYPE: "mysql"
+      SYSADMIN_HREF: "mailto:admin@example.com"
+      ERRORS_EMAIL_ADDRESS: "admin@example.com"
+      SMTP_SERVER: "smtp.example.com"
+      SMTP_PORT: 25
+    volumes:
+      - ..:/var/www
+      - ./php/php.ini:/usr/local/etc/php/php.ini
+    expose:
+      - "9000"
+    depends_on:
+      mysql_jethrodev:
+        condition: service_healthy
+    networks:
+      - backend-jethro
+
+  nginx_jethrodev:
+    image: nginx:alpine
+    container_name: nginx_jethrodev
+    volumes:
+      - ..:/var/www
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php_jethrodev
+    networks:
+      - backend-jethro
+      - proxy
+    labels:
+      - "traefik.enable=true"
+
+      # ---------------------------------------------------------
+      # Shared service definition
+      # ---------------------------------------------------------
+      - "traefik.http.services.jethrodev.loadbalancer.server.port=80"
+
+      # ---------------------------------------------------------
+      # HTTP -> HTTPS redirect
+      # ---------------------------------------------------------
+      - "traefik.http.routers.jethrodev-http.rule=Host(`jethro.example.com`)"
+      - "traefik.http.routers.jethrodev-http.entrypoints=web"
+      - "traefik.http.routers.jethrodev-http.middlewares=vault-redirect"
+      - "traefik.http.middlewares.jethrodev-redirect.redirectscheme.scheme=https"
+
+      # ---------------------------------------------------------
+      # Internal HTTPS router (Lets Encrypt)
+      # ---------------------------------------------------------
+      - "traefik.http.routers.jethrodev.rule=Host(`jethro.example.com`)"
+      - "traefik.http.routers.jethrodev.entrypoints=websecure"
+      - "traefik.http.routers.jethrodev.tls=true"
+      - "traefik.http.routers.jethrodev.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.jethrodev.service=jethrodev"
+
+  mysql_jethrodev:
+    image: mysql:8.4
+    container_name: mysql_jethrodev
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./my.cnf:/etc/mysql/conf.d/my.cnf
+    networks:
+      - backend-jethro
+    command: --character-set-server=UTF8MB4 --collation-server=UTF8MB4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  mysql_helper:
+    image: mysql:8.4
+    command: chown -R mysql:mysql /var/lib/mysql
+    volumes:
+      - db_data:/var/lib/mysql
+    user: root
+    profiles: [ "helper" ]
+
+networks:
+  backend-jethro:
+    driver: bridge
+  proxy:
+    external: true
+
+volumes:
+  db_data:
+

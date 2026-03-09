@@ -4,10 +4,20 @@
  *
  * conf.php - edit this file to configure jethro
  *
- * @author Tom Barrett <tom@tombarrett.id.au>
- * @version $Id: conf.php.sample.au,v 1.23 2014/01/08 10:47:19 tbar0970 Exp $
+ * @author BlueGibbs <BlueGibbs@bluegumtech.com.au>
+ * @version $Id: conf.php.sample.au,v 1.24 2026/03/10 00:18:54 bluegibbs Exp $
  * @package jethro-pmm
  */
+
+///////////////////////////////////////////////////////////////////////////
+// ENV Helper
+///////////////////////////////////////////////////////////////////////////
+
+// Load values from environment (to support Docker)
+function env_or_default(string $key, $default = null) {
+	$value = $_ENV[$key] ?? getenv($key);
+	return ($value === false || $value === null || $value === '') ? $default : $value;
+}
 
 ///////////////////////////////////////////////////////////////////////////
 // ESSENTIAL SETTINGS - these must be filled in for the system to run at all:
@@ -15,21 +25,22 @@
 
 
 // Name of the mysql database, eg jethro
-define('DB_DATABASE', '');
+define('DB_DATABASE', env_or_default('DB_DATABASE', ''));
 
 // Username and password of the mysql account with which to access the mysql database
-define('DB_USERNAME', '');
-define('DB_PASSWORD', '');
+define('DB_USERNAME', env_or_default('DB_USERNAME', ''));
+define('DB_PASSWORD', env_or_default('DB_PASSWORD', ''));
 
 // Advanced: If your Jethro PHP-FPM runs as a dedicated OS user ('jethro'), you can enable socket-based authentication in MySQL:
 //     create user if not exists 'jethro'@'localhost' identified with unix_socket;
 // then use socket-based auth for Jethro by specifying DB_DSN instead of DB_PASSWORD as follows:
 // define('DB_USERNAME', 'jethro');
-// define('DB_DSN', "mysql:dbname=jethro");
+// define('DB_DSN', env_or_default('DB_DSN', "mysql:dbname=jethro"));
 
 // The URL jethro will be running at. Only needs to be set if Jethro is running behind a proxy without
 // X-Forwarded-Proto + X-Forwarded-Host, or running scripts/task_reminder.php, where the base URL cannot be inferred
 // define('BASE_URL', 'https://example.com/jethro/');
+define('BASE_URL', env_or_default('BASE_URL', null));
 
 // Whether the system must be accessed by HTTPS.
 // If this is true, the BASE_URL above must begin with https://
@@ -44,39 +55,43 @@ define('DB_PASSWORD', '');
 // Username and password of the mysql account that the MEMBERS area of Jethro should
 // use. Optional. This can be used to add an extra layer of security by only granting
 // access to the tables needed for members area features.
-define('DB_MEMBERS_USERNAME', '');
-define('DB_MEMBERS_PASSWORD', '');
+define('DB_MEMBERS_USERNAME', env_or_default('DB_MEMBERS_USERNAME', ''));
+define('DB_MEMBERS_PASSWORD', env_or_default('DB_MEMBERS_PASSWORD', ''));
 
 // Username and password of the mysql account that the PUBLIC area of Jethro should
 // use. Optional. This can be used to add an extra layer of security by only granting
 // access to the tables needed for public  area features.
-define('DB_PUBLIC_USERNAME', '');
-define('DB_PUBLIC_PASSWORD', '');
+define('DB_PUBLIC_USERNAME', env_or_default('DB_PUBLIC_USERNAME', ''));
+define('DB_PUBLIC_PASSWORD', env_or_default('DB_PUBLIC_PASSWORD', ''));
 
 // Server on which mysql is running - usually localhost
-define('DB_HOST', 'localhost');
+define('DB_HOST', env_or_default('DB_HOST', 'localhost'));
 
 // Database type - usually mysql.
-define('DB_TYPE', 'mysql');
+define('DB_TYPE', env_or_default('DB_TYPE', 'mysql'));
 
 ///////////////////////////////////////////////////////////////////////////
 // 2-FACTOR AUTH SETTINGS - These can also be configured in the web interface,
 // but you may want to define them here to lock them down.
 ///////////////////////////////////////////////////////////////////////////
 // Whether to 2FA. Setting to false always turned it off. Setting to true still requires other parameters defined for 2FA to be applied.
-define('2FA_ENABLED', true);
+define('2FA_ENABLED', filter_var(env_or_default('TWO_FA_ENABLED', true), FILTER_VALIDATE_BOOL));
 
 // Allow users to tick a box to bypass 2-factor auth for this many days
 //define('2FA_TRUST_DAYS','30');
+define('2FA_TRUST_DAYS', env_or_default('2FA_TRUST_DAYS', null));
 
 // Sender ID for 2-factor auth SMS messages
 //define('2FA_SENDER_ID','Jethro');
+define('2FA_SENDER_ID', env_or_default('2FA_SENDER_ID', null));
 
 // Require 2-factor auth for users that hold these permissions
 //define('2FA_REQUIRED_PERMS','2147483647,48'); // SYSADMIN,VIEWNOTE
+define('2FA_REQUIRED_PERMS', env_or_default('2FA_REQUIRED_PERMS', null));
 
 // Require 2-factor auth even for accounts with group/congregation restrictions?
 //define('2FA_EVEN_FOR_RESTRICTED_ACCTS', false);
+define('2FA_EVEN_FOR_RESTRICTED_ACCTS', filter_var(env_or_default('2FA_EVEN_FOR_RESTRICTED_ACCTS', false), FILTER_VALIDATE_BOOL));
 
 ///////////////////////////////////////////////////////////////////////////
 // SMS SETTINGS - These can also be configured in the web interface,
@@ -85,18 +100,20 @@ define('2FA_ENABLED', true);
 
 // The maximum SMS length users are allowed to send.  160 chars is usually a one-part SMS.
 // define('SMS_MAX_LENGTH', 160);
+define('SMS_MAX_LENGTH', env_or_default('SMS_MAX_LENGTH', null));
 
 // URL of the SMS gateway to send SMSes through
 // define('SMS_HTTP_URL', 'https://www.5centsms.com.au:/api/v4/sms');
 // define('SMS_HTTP_URL', 'https://api.smsbroadcast.com.au/api-adv.php');
 // define('SMS_HTTP_URL', "");
+define('SMS_HTTP_URL', env_or_default('SMS_HTTP_URL', null));
 
 // Template for the headers of the HTTP POST request Jethro will send to the SMS gateway.
 // Some SMS gateways use headers for authentication.
 // Examples:
 // * For 5centsms:
 //   define('SMS_HTTP_HEADER_TEMPLATE', "User: me@example.com\r\nApi-Key: MyAPIKey\r\n");
-// define('SMS_HTTP_HEADER_TEMPLATE', "");
+define('SMS_HTTP_HEADER_TEMPLATE', env_or_default('SMS_HTTP_HEADER_TEMPLATE', null));
 
 // Template for the body of the HTTP POST request Jethro will send to the SMS gateway.
 // Can include the following keywords:
@@ -116,11 +133,12 @@ define('2FA_ENABLED', true);
 //   define('SMS_HTTP_POST_TEMPLATE', 'username=MYUSERNAME&password=MYPASSWORD&to=_RECIPIENTS_COMMAS_&from=_USER_MOBILE_&maxsplit=' . floor(SMS_MAX_LENGTH/160) . '&message=_MESSAGE_');
 // * For 5centsms:
 //   define('SMS_HTTP_POST_TEMPLATE', 'sender=_USER_MOBILE_&to=_RECIPIENTS_COMMAS_&message=_MESSAGE_');
-// define('SMS_HTTP_POST_TEMPLATE' , '');
+define('SMS_HTTP_POST_TEMPLATE', env_or_default('SMS_HTTP_POST_TEMPLATE', null));
 
 // Base name for the _RECIPIENTS_ARRAY_ keyword available above.
 // Eg set this to "number" to get number[]=0412333444&number[]=0413555666 etc
 // define('SMS_RECIPIENT_ARRAY_PARAMETER', 'number');
+define('SMS_RECIPIENT_ARRAY_PARAMETER', env_or_default('SMS_RECIPIENT_ARRAY_PARAMETER', null));
 
 // Regex to use to detect success message from the SMS server for each recipient.
 // Optional. Omit slash delimiters at start and end. Leave blank to ignore response.
@@ -132,28 +150,32 @@ define('2FA_ENABLED', true);
 //   define('SMS_HTTP_RESPONSE_OK_REGEX', '[\s\S]*_RECIPIENT_INTERNATIONAL_\",\"id\"\:\d*,\"status\"\:\d*,\"status_text\"\:\"Sen');
 // * For 5centsms
 //   define('SMS_HTTP_RESPONSE_OK_REGEX', '[{]\s*"destination":\s*"_RECIPIENT_",[^}]*"status":\s*"?(1000|1001|1002|1004|1006|1011|1527)"?,');
-// define('SMS_HTTP_RESPONSE_OK_REGEX', '');
+define('SMS_HTTP_RESPONSE_OK_REGEX', env_or_default('SMS_HTTP_RESPONSE_OK_REGEX', null));
 
 // Regex to detect an overall error response from the API server (eg bad credentials).
 // Optional.  Omit slash delimiters at start and end. Leave blank to ignore response.
-// define('SMS_HTTP_RESPONSE_ERROR_REGEX', '');
+define('SMS_HTTP_RESPONSE_ERROR_REGEX', env_or_default('SMS_HTTP_RESPONSE_ERROR_REGEX', null));
 
 // Local prefix used in the mobile numbers stored in Jethro.
 // Needed for some SMS gateways which use international-format numbers
 // define('SMS_LOCAL_PREFIX', '0');
+define('SMS_LOCAL_PREFIX', env_or_default('SMS_LOCAL_PREFIX', null));
 
 // International prefix, which replaces the local prefix to form an international-format number
 // Needed for some SMS gateways which use international-format numbers
 // define('SMS_INTERNATIONAL_PREFIX', '61');
+define('SMS_INTERNATIONAL_PREFIX', env_or_default('SMS_INTERNATIONAL_PREFIX', null));
 
 // A file to log who has sent SMSes (optional). JSONP format.
-// define('SMS_SEND_LOGFILE', '');
+define('SMS_SEND_LOGFILE', env_or_default('SMS_SEND_LOGFILE', null));
 
 // Length of a single SMS segment for cost estimation purposes
 //define('SMS_SEGMENT_LENGTH', 160);
+define('SMS_SEGMENT_LENGTH', env_or_default('SMS_SEGMENT_LENGTH', null));
 
 // Cost of sending a single SMS segment, for cost estimation purposes.
 //define('SMS_SEGMENT_COST', 0.05);
+define('SMS_SEGMENT_COST', env_or_default('SMS_SEGMENT_COST', null));
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -162,19 +184,18 @@ define('2FA_ENABLED', true);
 ///////////////////////////////////////////////////////////////////////////
 
 // SMTP server used to send registration emails (leave blank to use the local 'mail' command)
-// define('SMTP_SERVER', '');
-
-// Port to connect to the SMTP server. Usually 25, 465 if using SSL, or 587 if using TLS encryption.
-// define('SMTP_PORT', '');
+define('SMTP_SERVER', env_or_default('SMTP_SERVER', null));
+// Port to connect to the SMTP server. Usually 25, 465 if using SSL/TLS (SMTPS), or 587 if using STARTTLS & user auth (Submission Port). 
+define('SMTP_PORT', env_or_default('SMTP_PORT', null));
 
 // Encryption to use when authenticating with the SMTP server - 'ssl', 'tls', or empty.
-// define('SMTP_ENCRYPTION', '');
+define('SMTP_ENCRYPTION', env_or_default('SMTP_ENCRYPTION', null));
 
 // Username to use when authenticating with the SMTP server. Can be left blank for no auth.
-// define('SMTP_USERNAME', '');
+define('SMTP_USERNAME', env_or_default('SMTP_USERNAME', null));
 
 // Password to use when authenticating with the SMTP server. Can be left blank for no auth.
-// define('SMTP_PASSWORD', '');
+define('SMTP_PASSWORD', env_or_default('SMTP_PASSWORD', null));
 
 
 
@@ -184,60 +205,68 @@ define('2FA_ENABLED', true);
 
 // Whether to allow all configuration settings to be set in this conf.php file
 // (as in older versions of Jethro) rather than via the web interface.  (
-// define('ALLOW_SETTINGS_IN_FILE', TRUE);
+define('ALLOW_SETTINGS_IN_FILE', filter_var(env_or_default('ALLOW_SETTINGS_IN_FILE', false), FILTER_VALIDATE_BOOL));
 
 // The place where the "documents" view will store files.
 // Defaults to [yourJethroRoot]/files
-// define('DOCUMENTS_ROOT_PATH', '');
+define('DOCUMENTS_ROOT_PATH', env_or_default('DOCUMENTS_ROOT_PATH', null));
 
 // The place where custom report SQL files are stored
 // Defaults to [yourJethroRoot]/custom_reports
-// define('CUSTOM_REPORTS_DIR', '');
+define('CUSTOM_REPORTS_DIR', env_or_default('CUSTOM_REPORTS_DIR', null));
 
 // Dedicated SMS gateway config for 2FA SMS messages (optional)
 // - If 2FA_SMS_URL is set:
 //    * 2FA will use all the 2FA_SMS_ settings instead of SMS_HTTP_ settings.
 //    * 2FA messages will NOT be logged in SMS_SEND_LOGFILE.
-//define('2FA_SMS_URL', '');
-//define('2FA_SMS_POST_TEMPLATE', '');
-//define('2FA_SMS_HEADER_TEMPLATE', "");
-//define('2FA_SMS_RESPONSE_OK_REGEX', '');
-//define('2FA_SMS_RESPONSE_ERROR_REGEX', '');
+define('2FA_SMS_URL', env_or_default('TWO_FA_SMS_URL', null));
+define('2FA_SMS_POST_TEMPLATE', env_or_default('TWO_FA_SMS_POST_TEMPLATE', null));
+define('2FA_SMS_HEADER_TEMPLATE', env_or_default('TWO_FA_SMS_HEADER_TEMPLATE', null));
+define('2FA_SMS_RESPONSE_OK_REGEX', env_or_default('TWO_FA_SMS_RESPONSE_OK_REGEX', null));
+define('2FA_SMS_RESPONSE_ERROR_REGEX', env_or_default('TWO_FA_SMS_RESPONSE_ERROR_REGEX', null));
 
 // Log file to keep track of 2FA actions
 // define('2FA_LOGFILE', "/var/log/jethro-2fa.log");
 // define('2FA_LOG_LEVEL', "full"); // 'full' for everything, or 'quiet' for errors only.
+define('2FA_LOGFILE', env_or_default('2FA_LOGFILE', null));
+define('2FA_LOG_LEVEL', env_or_default('2FA_LOG_LEVEL', null));
 
 // Dev option: Don't actually sent 2FA messages, just log them
 // define('2FA_BLOCK_MESSAGES', TRUE); // Don't actually send SMS, just log the intention to send.
+define('2FA_BLOCK_MESSAGES', filter_var(env_or_default('2FA_BLOCK_MESSAGES', false), FILTER_VALIDATE_BOOL));
 
 // To use the "generate service documents" feature, add folder paths here.
 // They can be absolute paths, or relative within the documents root above.
 // Separate multiple entries with pipe (|).
 //define('SERVICE_DOCS_TO_POPULATE_DIRS', 'Templates/To_Populate');
 //define('SERVICE_DOCS_TO_EXPAND_DIRS', 'Templates/To_Expand');
+define('SERVICE_DOCS_TO_POPULATE_DIRS', env_or_default('SERVICE_DOCS_TO_POPULATE_DIRS', null));
+define('SERVICE_DOCS_TO_EXPAND_DIRS', env_or_default('SERVICE_DOCS_TO_EXPAND_DIRS', null));
 
 // To make certain document folders visible within the members interface,
 // add their paths here. Paths, if relative, are relative to DOCUMENTS_ROOT_PATH
 // Separate multiple entries with pipe (|).
 // Note: generally this should be left unset. Use the 'Member Visible Folders' config setting instead.
 // define('MEMBER_FILES_DIRS', '/path/to/member/files/');
+define('MEMBER_FILES_DIRS', env_or_default('MEMBER_FILES_DIRS', null));
 
 // How to contact the system administrator (probably the person editing this file)
 // either mailto:someone@domain.com or http://somedomain.com/info-page
 // define('SYSADMIN_HREF', '');
+define('SYSADMIN_HREF', env_or_default('SYSADMIN_HREF', null));
 
 // Where to email errors to
 // define('ERRORS_EMAIL_ADDRESS', '');
+define('ERRORS_EMAIL_ADDRESS', env_or_default('ERRORS_EMAIL_ADDRESS', null));
 
 // Set the SQL_MODE variable in Mysql if necessary. 
 // If Mysql8 throws errors related to ONLY_FULL_GROUP_BY, turn it off by enabling the line below.
 // define('SQL_MODE', 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION');
-
+define('SQL_MODE', env_or_default('SQL_MODE', null));
 
 // HTML to add to the <head> of every page such as additional CSS
 // For example <link rel="stylesheet" type="text/css" href="/extrastuff/jethro-extra.css" >
-// define('EXTRA_HEAD_HTML', '');
+define('EXTRA_HEAD_HTML', env_or_default('EXTRA_HEAD_HTML', null));
 
 // Override LESS variables for the CSS stylesheet (for custom colour scheme)
 // See resources/less/jethro.less.php
@@ -251,16 +280,18 @@ define('2FA_ENABLED', true);
 //	@jethroLightText: #f0f0f0;
 //	@jethroDarkText: #008791;
 //");
+define('CUSTOM_LESS_VARS', env_or_default('CUSTOM_LESS_VARS', null));
 
 // Note to display beneath the Control Centre log-in button, eg a link to T&Cs.  Can contain HTML.
-//define('LOGIN_NOTE', '');
+define('LOGIN_NOTE', env_or_default('LOGIN_NOTE', null));
 
 // Note to display beneath the Mmebers Area login form, eg a link to T&Cs.  Can contain HTML.
-//define('MEMBER_LOGIN_NOTE', '');
+define('MEMBER_LOGIN_NOTE', env_or_default('MEMBER_LOGIN_NOTE', null));
 
 // Custom function for building email URLs.
 // Write your own, or use the sample below to go direct to gmail.
 // function custom_email_href($to, $name, $bcc, $subject) { return 'https://mail.google.com/mail/?view=cm&fs=1&tf=1&to='.$to.'&bcc='.$bcc.'&su='.$subject; }
+
 
 // Custom function for adding attributes to email URLs.
 // Write your own, or use the sample below to make sure all mailto links open in a new window.
@@ -268,16 +299,18 @@ define('2FA_ENABLED', true);
 
 // When Jethro sends an email itself (eg for member rego), force the From: address to this value,
 // and use the user-specified From address as a reply-to.
-//define('OVERRIDE_EMAIL_FROM', '');
+define('OVERRIDE_EMAIL_FROM', env_or_default('OVERRIDE_EMAIL_FROM', null));
 
 // Pre-filled values for the login form.  Only use on demo systems etc.
-// define('PREFILL_USERNAME', '');
-// define('PREFILL_PASSWORD', '');
+define('PREFILL_USERNAME', env_or_default('PREFILL_USERNAME', null));
+define('PREFILL_PASSWORD', env_or_default('PREFILL_PASSWORD', null));
 
 // For troubleshooting you can use this to show error details in the browser
 // This is usually disabled in production versions but shown in dev.
 // define('SHOW_ERROR_DETAILS', TRUE);
+define('SHOW_ERROR_DETAILS', filter_var(env_or_default('SHOW_ERROR_DETAILS', false), FILTER_VALIDATE_BOOL));
 
 // Text encoding for sending SMS messages.
 // Change it to something other than GSM0338 to stop Jethro filtering out non-GSMS0338 characters.
 // define('SMS_ENCODING', 'GSM0338');
+define('SMS_ENCODING', env_or_default('SMS_ENCODING', null));
