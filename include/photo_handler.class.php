@@ -10,6 +10,9 @@ Class Photo_Handler {
 
 	public static function getUploadedPhotoData($fieldName, $crop=NULL)
 	{
+		if (array_key_exists($fieldName.'_remove', $_POST)) {
+			return FALSE;
+		}
 		if ($crop === NULL) $crop = self::CROP_WIDTH;
 		if (!empty($_FILES[$fieldName]) && !empty($_FILES[$fieldName]['name'])) {
 			if (!empty($_FILES[$fieldName]['error'])) {
@@ -18,7 +21,7 @@ Class Photo_Handler {
 					add_message("Your photo could not be saved because the file is too big (over ".self::maxUploadSize()."Mb). Please try a smaller image.", 'error');
 					return NULL;
 				} else {
-					trigger_error("Technical error uploading photo file: Error #".$err, E_USER_ERROR);
+					throw new \RuntimeException("Technical error uploading photo file: Error #".$err);
 				}
 			}
 
@@ -26,7 +29,7 @@ Class Photo_Handler {
 				add_message("The uploaded photo was not of a permitted type and has not been saved.  Photos must be JPEG, GIF or PNG", 'error');
 				return NULL;
 			} else if (!is_uploaded_file($_FILES[$fieldName]['tmp_name'])) {
-				trigger_error("Security error with file upload", E_USER_ERROR);
+				throw new \RuntimeException("Security error with file upload");
 				return NULL;
 			} else {
 				$bits = explode('.', $_FILES[$fieldName]['name']);
@@ -40,19 +43,21 @@ Class Photo_Handler {
 					$fn = 'imagecreatefrom'.$ext;
 					$input_img = $fn($_FILES[$fieldName]['tmp_name']);
 					if (!$input_img) exit;
-					// Rotate the image as necessary - thanks http://php.net/manual/en/function.exif-read-data.php#110894
-					$exif = @exif_read_data($_FILES[$fieldName]['tmp_name']);
-					if (!empty($exif['Orientation'])) {
-						switch($exif['Orientation']) {
-							case 8:
-								$input_img = imagerotate($input_img,90,0);
-								break;
-							case 3:
-								$input_img = imagerotate($input_img,180,0);
-								break;
-							case 6:
-								$input_img = imagerotate($input_img,-90,0);
-								break;
+					if (function_exists('exif_read_data')) {
+						// Rotate the image as necessary - thanks https://www.php.net/manual/en/function.exif-read-data.php#110894
+						$exif = @exif_read_data($_FILES[$fieldName]['tmp_name']);
+						if (!empty($exif['Orientation'])) {
+							switch($exif['Orientation']) {
+								case 8:
+									$input_img = imagerotate($input_img,90,0);
+									break;
+								case 3:
+									$input_img = imagerotate($input_img,180,0);
+									break;
+								case 6:
+									$input_img = imagerotate($input_img,-90,0);
+									break;
+							}
 						}
 					}
 					$orig_width = imagesx($input_img);
@@ -84,7 +89,7 @@ Class Photo_Handler {
 							$src_w = $orig_width;
 							$src_h = $orig_height;
 						}
-						$output_img = imagecreatetruecolor($new_width, $new_height);
+						$output_img = imagecreatetruecolor((int)$new_width, (int)$new_height);
 						imagecopyresampled($output_img, $input_img, 0, 0, $src_x, $src_y, $new_width, $new_height, $src_w, $src_h);
 						imagedestroy($input_img);
 					} else {
@@ -154,6 +159,37 @@ Class Photo_Handler {
 				return $res;
 			}
 		}
+	}
+
+	static function printChooser($prefix, $existing_photo_url)
+	{
+		if ($existing_photo_url) {
+				?>
+			<div class="photo-tools">
+				<img src="<?php echo $existing_photo_url; ?>" />
+				<input type="text" readonly="readonly" class="new-photo-name" value="" />
+				<label class="clickable replace-photo">
+					<input type="file" accept="image/*" max-bytes="<?php echo file_upload_max_size(); ?>" name="<?php echo $prefix; ?>photo"/>
+					<i class="icon-wrench"></i>Replace photo&hellip;
+				</label>
+				<label class="checkbox remove-photo" title="Remove photo">
+					<input type="checkbox" name="<?php echo $prefix; ?>photo_remove">
+					Remove photo
+				</label>
+			</div>
+			<?php
+		} else {
+			?>
+			<div class="photo-tools">
+				<input type="text" readonly="readonly" class="new-photo-name" value="" />
+				<label class="clickable">
+					<input type="file" accept="image/*" max-bytes="<?php echo file_upload_max_size(); ?>" name="<?php echo $prefix; ?>photo" />
+					<i class="icon-plus-sign"></i>Choose photo&hellip;
+				</label>
+			</div>
+			<?php
+
+		}		
 	}
 
 }

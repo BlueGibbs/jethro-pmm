@@ -106,7 +106,7 @@ class roster_view extends db_object
 									'type'		=> 'select',
 									'options'	=> Array('' => 'Private', 'members' => 'Show in members area', 'public' => 'Show in public area'),
 									'default'	=> 0,
-									'note' => 'Whether this roster view is visible in the <a href="'.BASE_URL.'/public/">public area</a> and/or to church members via the <a href="'.BASE_URL.'members/">members area</a>',
+									'note' => 'Whether this roster view is visible in the <a href="'.BASE_URL.'/public/">public area</a> and/or to church members via the <a href="'.BASE_URL.'/members/">members area</a>',
 								),
 			'show_on_run_sheet' => Array(
 									'type'	=> 'select',
@@ -121,12 +121,6 @@ class roster_view extends db_object
 	function printForm($prefix='', $fields=NULL)
 	{
 		$this->fields['members'] = Array(); // fake field for interface purposes
-		if ($this->id) {
-			$url = BASE_URL.'public/?view=display_roster&roster_view='.$this->id;
-			if (defined('PUBLIC_ROSTER_SECRET') && strlen(PUBLIC_ROSTER_SECRET)) {
-				$url .= '&secret='.PUBLIC_ROSTER_SECRET;
-			}
-		}
 		parent::printForm($prefix, $fields);
 		unset($this->fields['members']);
 	}
@@ -527,12 +521,13 @@ class roster_view extends db_object
 		return $asns;
 	}
 
+	// This is used in public/printable run sheets
 	function printSingleViewTable($service, $columns=2, $includeServiceFields=FALSE)
 	{
 		$showBlanks = ($this->getValue('show_on_run_sheet') == 1);
 		$asns = $this->getAssignments($service->getValue('date'), $service->getValue('date'));
 		$asns = empty($asns) ? Array() : reset($asns);
-		
+
 		$ourMembers = Array();
 		foreach ($this->_members as $member) {
 			if (empty($member['role_id']) && !$includeServiceFields) continue;
@@ -552,7 +547,7 @@ class roster_view extends db_object
 				foreach ($ourMembers as $member) {
 					if (($i % $totalRows) == $rowNum) {
 						?>
-						<th><?php $this->_printOutputLabel($member, $service); ?></th>
+						<th><?php $this->_printOutputLabel($member, $service, TRUE); ?></th>
 						<td>
 							<?php $this->_printOutputValue($member, $service, array_get($asns, $member['role_id'], Array()), 0); ?>
 						</td>
@@ -569,13 +564,16 @@ class roster_view extends db_object
 		<?php
 	}
 
-	private function _printOutputLabel($member, $service)
+	private function _printOutputLabel($member, $service, $publicLinks=FALSE)
 	{
 		if ($member['role_id']) {
-			if (ifdef('PUBLIC_AREA_ENABLED', 1)) {
-				echo '<a class="med-popup" href="'.BASE_URL.'/public/?view=display_role_description&role='.(int)$member['role_id'].'">';
+			if ($publicLinks && Roster_Role::allowPublicDescriptions()) {
+				// $publicLinks is true for 'printable' run sheets, which may get viewed by non-logged-in people
+				$url = BASE_URL.'/public/?view=_roster_role_description&role='.(int)$member['role_id'];
+				if (PUBLIC_ROSTER_SECRET) $url .= '&secret='.PUBLIC_ROSTER_SECRET;
+				echo '<a class="med-popup" href="'.$url.'">';
 			} else {
-				echo '<a class="med-popup" href="'.BASE_URL.'?view=rosters__define_roster_roles&roster_roleid='.(int)$member['role_id'].'">';
+				echo '<a class="med-popup" href="?view=rosters__define_roster_roles&roster_roleid='.(int)$member['role_id'].'">';
 			}
 			echo ents($member['role_title']);
 			echo '</a>';
@@ -597,9 +595,9 @@ class roster_view extends db_object
 					if ($asn['absenceid']) {
 						echo ' <span class="label label-important" title="Planned absence: '.ents($asn['absence_comment']).'">!</i></span>';
 					}
-					if (('' === $asn['email'])) echo ' <img class="visible-desktop" src="'.BASE_URL.'resources/img/no_email.png" title="No Email Address" />';
+					if (('' === $asn['email'])) echo ' <img class="visible-desktop" src="'.BASE_URL.'/resources/img/no_email.png" title="No Email Address" />';
 					if (('' === $asn['mobile']) && SMS_Sender::canSend()) {
-						echo ' <img class="visible-desktop" src="'.BASE_URL.'resources/img/no_phone.png" title="No Mobile" />';
+						echo ' <img class="visible-desktop" src="'.BASE_URL.'/resources/img/no_phone.png" title="No Mobile" />';
 					}
 					echo '</span>';
 
@@ -629,7 +627,7 @@ class roster_view extends db_object
 		if (empty($this->_members)) return;
 		$GLOBALS['system']->includeDBClass('service');
 		$dummy_service = new Service();
-	
+
 		if (is_null($start_date)) $start_date = date('Y-m-d');
 		$service_params = Array('congregationid' => $this->getCongregations(), '>date' => date('Y-m-d', strtotime($start_date.' -1 day')));
 		if (!is_null($end_date)) $service_params['<date'] = date('Y-m-d', strtotime($end_date.' +1 day'));
@@ -646,7 +644,7 @@ class roster_view extends db_object
 																),
 																'AND');
 		}
-		
+
 		$to_print = Array();
 		foreach ($services as $id => $service_details) {
 			$service_details['id'] = $id;
@@ -689,13 +687,18 @@ class roster_view extends db_object
 		if ($editing) {
 			$show_lock_fail_msg = false;
 			$show_group_denied_msg = false;
+			$lockholders = Array(); // Array mapping personid of lock holders to info about them and their lock, for later display. Typically there will be N identical locks for N roles edited. We only store the first, assuming it is representative.
 			foreach ($this->_members as $id => &$details) {
 				if (!empty($details['role_id'])) {
 					$role = $GLOBALS['system']->getDBObject('roster_role', $details['role_id']);
-
 					if (!($role->canAcquireLock('assignments') && $role->acquireLock('assignments'))) {
 						$details['readonly'] = true;
 						$show_lock_fail_msg = true;
+						$lockHolder = $role->getLockHolder('assignments');
+						// Use ??= null coalescing when we drop php 7.2
+						if (!isset($lockholders[$lockHolder['userid']])) {
+							$lockholders[$lockHolder['userid']] = $lockHolder;
+						}
 					}
 					if (!$role->canEditAssignments()) {
 						$details['readonly'] = true;
@@ -704,7 +707,7 @@ class roster_view extends db_object
 				}
 			}
 			if ($show_lock_fail_msg) {
-				print_message("Some of the roles in this roster are currently being edited by another user.  To edit assignments for these roles, wait until the other user finishes then try again.", 'failure');
+				$this->printLockHoldMessage($lockholders);
 			}
 			if ($show_group_denied_msg) {
 				print_message("There are some roles in this roster which you are not able to edit because they refer to a volunteer group you do not have access to.");
@@ -756,7 +759,7 @@ class roster_view extends db_object
 				}
 				$class_clause = ($date == $this_sunday) ? 'class="roster-next"' : '';
 				?>
-				
+
 				<tr <?php echo $class_clause; ?>>
 					<th class="roster-date nowrap">
 						<?php
@@ -836,9 +839,9 @@ class roster_view extends db_object
 									if (strlen(strval($vs['absenceid']))) {
 										$n .= ' <a href="'.$href.'#rosters" class="label label-important" title="Planned absence: '.ents($vs['absence_comment']).'">!</i></a>';
 									}
-									if (('' === $vs['email'])) $n .= ' <img class="visible-desktop" src="'.BASE_URL.'resources/img/no_email.png" title="No Email Address" />';
+									if (('' === $vs['email'])) $n .= ' <img class="visible-desktop" src="'.BASE_URL.'/resources/img/no_email.png" title="No Email Address" />';
 									if (('' === $vs['mobile']) && SMS_Sender::canSend()) {
-										$n .= ' <img class="visible-desktop" src="'.BASE_URL.'resources/img/no_phone.png" title="No Mobile" />';
+										$n .= ' <img class="visible-desktop" src="'.BASE_URL.'/resources/img/no_phone.png" title="No Mobile" />';
 					                }
 									$n .= '</span>';
 									$names[] = $n;
@@ -875,6 +878,8 @@ class roster_view extends db_object
 
 		<?php
 		if ($editing) {
+			$this->printDefineMoreServicesMessage($end_date);
+
 			?>
 			<input type="submit" class="btn" value="Save" accesskey="s" />
 			</form>
@@ -926,6 +931,16 @@ class roster_view extends db_object
 		// print role/field headings
 		$dummy_service = new Service();
 		$last_congid = NULL;
+		$role_href = '';
+		if ($public && Roster_Role::allowPublicDescriptions()) {
+			// $public is true for 'printable' rosters, even if not in the public area
+			$role_href = BASE_URL.'/public/?view=_roster_role_description';
+			if (PUBLIC_ROSTER_SECRET) $role_href .= '&secret='.PUBLIC_ROSTER_SECRET;			
+			$role_href .= '&role=';
+		} else {
+			$role_href = '?view=rosters__define_roster_roles&roster_roleid=';
+		}
+
 		foreach ($this->_members as $id => $details) {
 			$th_class = '';
 			if ($details['congregationid'] != $last_congid) {
@@ -936,13 +951,13 @@ class roster_view extends db_object
 			<th class="<?php echo $th_class; ?>">
 				<?php
 				if ($details['role_id']) {
-					if ($public) {
-						echo '<a class="med-popup" href="'.BASE_URL.'/public/?view=display_role_description&role='.(int)$details['role_id'].'">';
-					} else {
-						echo '<a class="med-popup" href="'.BASE_URL.'?view=rosters__define_roster_roles&roster_roleid='.(int)$details['role_id'].'">';
+					if ($role_href) {
+						echo '<a class="med-popup" href="'.$role_href.$details['role_id'].'">';
 					}
 					echo ents($details['role_title']);
-					echo '</a>';
+					if ($role_href) {
+						echo '</a>';
+					}
 				} else {
 					if (!$public) echo '<a href="?view=services__list_all">';
 					echo ents($dummy_service->getFieldLabel($details['service_field'], true));
@@ -989,15 +1004,24 @@ class roster_view extends db_object
 			if (!empty($_POST['assignees'][$roleid])) {
 				foreach ($_POST['assignees'][$roleid] as $date => $assignee) {
 					if (!is_array($assignee)) $assignee = Array($assignee);
-					foreach ($assignee as $rank => $new_personid) {
-						$new_personid = (int)$new_personid;
-						if (empty($new_personid)) continue;
-						if (isset($to_delete[$date][$roleid][$rank]) && $to_delete[$date][$roleid][$rank]['personid'] == $new_personid) {
-							// unchanged allocation - leave it as is
-							unset($to_delete[$date][$roleid][$rank]);
+					$rank = 0;
+					foreach ($assignee as $assignee_value) {
+						if (str_starts_with($assignee_value, 'team')) {
+							$new_personids = explode(',', substr($assignee_value, 4));
 						} else {
-							// new allocation
-							$to_add[] = '('.(int)$roleid.', '.$GLOBALS['db']->quote($date).', '.(int)$new_personid.', '.(int)$rank.', '.(int)$GLOBALS['user_system']->getCurrentUser('id').')';
+							$new_personids = [$assignee_value];
+						}
+						foreach ($new_personids as $new_personid) {
+							$new_personid = (int)$new_personid;
+							if (empty($new_personid)) continue;
+							if (isset($to_delete[$date][$roleid][$rank]) && $to_delete[$date][$roleid][$rank]['personid'] == $new_personid) {
+								// unchanged allocation - leave it as is
+								unset($to_delete[$date][$roleid][$rank]);
+							} else {
+								// new allocation
+								$to_add[] = '('.(int)$roleid.', '.$GLOBALS['db']->quote($date).', '.(int)$new_personid.', '.(int)$rank.', '.(int)$GLOBALS['user_system']->getCurrentUser('id').')';
+							}
+							$rank += 1;
 						}
 					}
 				}
@@ -1035,21 +1059,18 @@ class roster_view extends db_object
 		$SQL = 'UPDATE roster_role_assignment rra
 				INNER JOIN ( SELECT *,
 								(row_number() OVER (PARTITION BY assignment_date, roster_role_id
-													ORDER BY rank ASC) - 1) AS correctrank
+													ORDER BY `rank` ASC) - 1) AS correctrank
 							   FROM roster_role_assignment
 							) a
 							ON rra.assignment_date = a.assignment_date
 								AND rra.roster_role_id = a.roster_role_id
 								AND rra.personid = a.personid
-				SET rra.rank = a.correctrank
-				WHERE rra.rank != a.correctrank
+				SET rra.`rank` = a.correctrank
+				WHERE rra.`rank` <> a.correctrank
 				AND rra.roster_role_id IN ('.implode(',', $clean_role_ids).')';
 		$res = $GLOBALS['db']->query($SQL);
 
-		foreach ($roles as $i => $roleid) {
-			$role = $GLOBALS['system']->getDBObject('roster_role', $roleid);
-			$role->releaseLock('assignments');
-		}
+		$this->releaseLocks();
 		unset($roleid);
 
 		if (!empty($_POST['new_volunteers'])) {
@@ -1156,5 +1177,60 @@ class roster_view extends db_object
 		<?php
 
 	}
+
+	public function releaseLocks()
+	{
+		$roles = $this->getRoleIds();
+		foreach ($roles as $i => $roleid) {
+			$role = $GLOBALS['system']->getDBObject('roster_role', $roleid);
+			$role->releaseLock('assignments');
+		}
+	}
+
+	/**
+	 * Print an error explaining which other user has the roster edit lock, and for how long.
+	 * @param array{userid: int, array{userid: int, expires: string, first_name: ?string, last_name: ?string}} $lockholders Array mapping lock holder userids to info about them and their lock.
+	 *
+	 * @return void
+	 * @throws DateMalformedStringException
+	 */
+	public function printLockHoldMessage(array $lockholders): void
+	{
+		$lockHoldersStr = implode(' and ', array_map(
+			function($lockowner, $userid) {
+				return $lockowner['first_name'] !== null
+					? "{$lockowner['first_name']} {$lockowner['last_name']} ({$userid})"
+					: "user $userid";
+			},
+			$lockholders,
+			array_keys($lockholders)
+		));
+		// If more than one person holds locks of differing expiries, the longest expiry is most relevant.
+		$maxLockExpiry = array_reduce($lockholders, function ($carry, $lockholder) {
+			return $lockholder['expires'] > $carry ? $lockholder['expires'] : $carry;
+		}, PHP_INT_MIN);
+		$lockExpiresStr = (new DateTime($maxLockExpiry))->format('H:i');
+		print_message("Some of the roles in this roster are currently being edited by $lockHoldersStr.  To edit assignments for these roles, wait until the other user finishes or their lock expires (at $lockExpiresStr), then try again.", 'failure');
+	}
+
+	/**
+	 * If a user appears to be wanting to edit roster assignments in weeks when no service is defined yet, print an informative message.
+	 */
+	private function printDefineMoreServicesMessage($search_end_date): void
+	{
+		$congs = $this->getCongregations();
+		if (is_null($search_end_date)) return;  // should never happen
+		if (empty($congs)) return;  // should never happen
+		$sql = "select max(date) from service where congregationid in (".implode(',', $congs).")";
+		$lastServiceDate = $GLOBALS['db']->queryOne($sql);
+
+		if ((strtotime($search_end_date) - strtotime($lastServiceDate)) > 6*24*60*60) {
+			// the last service is 6 or more days before the end of the end of the search window
+			if ($GLOBALS['user_system']->havePerm(PERM_BULKSERVICE)) {
+				print_message("To create roster assignments beyond ".format_date($lastServiceDate).", first add service details in the Services→List All page", 'warning');
+			} else {
+				print_message("There are not yet any services defined beyond ".format_date($lastServiceDate), 'warning');
+			}
+		}
+	}
 }
-?>

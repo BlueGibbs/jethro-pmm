@@ -37,8 +37,9 @@ class View_Rosters__Define_Roster_Roles extends View
 			echo _('A roster role represents an activity somebody does which is organised by a roster.
 				Roster roles are often congregation-specific; for example each congregation probably has its own separate "bible reader" role.
 				Other roles may be congregation-independent, such as cleaning or gardening. ');
-			if (PUBLIC_AREA_ENABLED) {
-				printf(_('Roster role descriptions can be viewed in the %s.'), '<a href="'.BASE_URL.'/public/?view=display_role_description">'._('public area of Jethro').'</a>');
+			if (Roster_Role::allowPublicDescriptions()) {
+				printf(_('Roster role descriptions can be viewed in the %s.'), 
+						'<a target="publicrole" href="'.BASE_URL.'/public/?view=_roster_role_description&secret='.PUBLIC_ROSTER_SECRET.'">'._('public area of Jethro').'</a>');
 			}
 			?>
 		</p>
@@ -83,7 +84,7 @@ class View_Rosters__Define_Roster_Roles extends View
 						<td>
 							<?php
 							if (!empty($rdetails['volunteer_group'])) {
-								echo '<a target="jethro" href="'.BASE_URL.'?view=groups&groupid='.$rdetails['volunteer_group'].'">'.ents($rdetails['volunteer_group_name'].' (#'.$rdetails['volunteer_group'].')').'</a>';
+								echo '<a target="jethro" href="?view=groups&groupid='.$rdetails['volunteer_group'].'">'.ents($rdetails['volunteer_group_name'].' (#'.$rdetails['volunteer_group'].')').'</a>';
 							}
 							?>
 						</td>

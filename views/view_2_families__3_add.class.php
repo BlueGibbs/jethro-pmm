@@ -3,6 +3,7 @@ include_once 'db_objects/action_plan.class.php';
 class View_Families__Add extends View
 {
 	var $_family;
+	protected $_similar_families;
 
 	static function getMenuPermissionLevel()
 	{
@@ -152,11 +153,11 @@ class View_Families__Add extends View
 
 		<form method="post" class="min">
 		<?php print_hidden_fields($_POST); ?>
-		<input type="submit" class="btn" name="override_dup_check" value=<?php echo _('Create new family anyway');?> />
+		<input type="submit" class="btn" name="override_dup_check" value="<?php echo _('Create new family anyway');?>" />
 		</form>
 
 		<form method="get" class="min">
-		<input type="submit" class="btn" value=<?php echo _('Cancel family creation');?> />
+		<input type="submit" class="btn" value="<?php echo _('Cancel family creation');?>" />
 		</form>
 		<?php
 	}
@@ -241,6 +242,8 @@ class View_Families__Add extends View
 							<div><?php $person->printFieldInterface('mobile_tel', 'members_0_'); ?></div>
 							<div><?php $person->printFieldInterface('email', 'members_0_'); ?></div>
 
+                            <label class="fullwidth"><?php echo _('Contact Remarks');?></label>
+                            <div class="fullwidth"><?php $person->printFieldInterface('remarks', 'members_0_'); ?></div>
 						<?php
 						$field = new Custom_Field();
 						foreach ($customFields as $fieldID => $fDetails) {
@@ -320,11 +323,10 @@ class View_Families__Add extends View
 		?>
 		<h3><?php echo _('Create');?></h3>
 			<div class="align-right">
-				<input type="submit" class="btn" value=<?php echo _('Create Family');?> />
-				<input type="button" class="back btn" value=<?php echo _('Cancel');?> />
+				<input type="submit" class="btn" value="<?php echo _('Create Family');?>" />
+				<input type="button" class="back btn" value="<?php echo _('Cancel');?>" />
 			</div>
 		</form>
 		<?php
 	}
 }
-?>

@@ -1,3 +1,30 @@
+var JethroDateRangePicker = {};
+JethroDateRangePicker.updateDisplayValue = function(selectElt, valueType)
+{
+	switch (valueType) {
+		case 'any':
+			selectElt.options[0].innerHTML = 'any date';
+			break;
+		case 'exact':
+			var d = new Date(Date.parse(selectElt.options[0].value.replace(/-/g, '/')));
+			selectElt.options[0].innerHTML = d.getDate()+' '+d.toLocaleString('default', { month: 'short' })+' '+d.getFullYear();
+			break;
+		case 'relative':
+			var matches = selectElt.options[0].value.match(/([-+])(\d+)y(\d+)m(\d+)d/);
+			if (matches) {
+				var l = '';
+				if (matches[2]>0) l += matches[2]+' years ';
+				if (matches[3]>0) l += matches[3]+' months ';
+				if (matches[4]>0) l += matches[4]+' days ';
+				if (l.length) l += (matches[1] == '-') ? 'before' : 'after';
+				l += ' the report date';
+				selectElt.options[0].innerHTML = l;
+			} else {
+				selectElt.options[0].innerHTML = '!Error!';
+			}
+	}
+}
+
 $(document).ready(function() {
 
 	if ($('.stop-js').length) return; /* Classname flag for big pages that don't want JS to run */
@@ -43,9 +70,11 @@ $(document).ready(function() {
 			}
 		});
 	}
-	if ((navigator.userAgent.toLowerCase().indexOf('safari/') > -1)
-		&& ("standalone" in window.navigator)
-		&& !window.navigator.standalone) {
+	var ua = window.navigator.userAgent;
+	var iOS = !!ua.match(/iPad/i) || !!ua.match(/iPhone/i);
+	var webkit = !!ua.match(/WebKit/i);
+	var iOSSafari = iOS && webkit && !ua.match(/CriOS/i);
+	if (iOSSafari && !window.navigator.standalone) {
 		// we're in safari, but not in standalone mode, so show the tip
 		$('.a2hs-prompt').show();
 	}
@@ -116,9 +145,13 @@ $(document).ready(function() {
 	});
 
 	$('a.ccli-lookup').click(function() {
-		var title = $('[name=title]').val();
-		if (title == '') return false;
-		var url = this.href.replace('__TITLE__', title);
+		var searchterm = $('[name=ccli_number]').val();
+		if (!searchterm || searchterm==0) searchterm = $('[name=title]').val();
+		if (!searchterm) {
+			alert('Fill in either Title or CCLI Number');
+			return false;
+		}
+		var url = this.href.replace('__TITLE__', searchterm);
 		var ccliWindow = window.open(url, 'ccli', 'height='+(screen.height-100)+',width='+(screen.width/2)+',left='+(screen.width/2)+',top=0location=no,menubar=no,titlebar=no,toolbar=no,resizable=yes,statusbar=no,scrollbars=yes');
 		if (!ccliWindow) {
 			alert('Jethro tried but could not open a popup window - you probably have a popup blocker enabled.  Please disable your popup blocker for this site, reload the page and try again.');
@@ -172,6 +205,105 @@ $(document).ready(function() {
 		$($(this).parents('tr')[0]).find('div.select-rule-options').css('display', (this.checked ? '' : 'none'));
 	});
 
+	$('.date-range-picker select.dropdown-toggle').each(function(event) {
+		var menu = $(this.parentNode).find('.dropdown-menu');
+		var radiosByVal = {};
+		menu.find('input[type=radio]').attr('checked', false).each(function() {
+			radiosByVal[this.value] = this;
+		});
+		var matches;
+		switch (true) {
+			case (!!(matches = this.value.match(/(\d\d\d\d)-(\d\d)-(\d\d)/))):
+				radiosByVal['exact'].checked = true;
+				menu.find('input[name=drp_exact_d]').val(matches[3]);
+				menu.find('select[name=drp_exact_m]').val(parseInt(matches[2], 10));
+				menu.find('input[name=drp_exact_y]').val(matches[1]);
+				JethroDateRangePicker.updateDisplayValue(this, 'exact');
+				break;
+			case (!!(matches = this.value.match(/([-+])(\d+)y(\d+)m(\d+)d/))):
+				menu.find('select[name=drp_relative_direction]').val(matches[1]);
+				menu.find('input[name=drp_relative_d]').val(matches[4]);
+				menu.find('input[name=drp_relative_m]').val(matches[3]);
+				menu.find('input[name=drp_relative_y]').val(matches[2]);
+				radiosByVal['relative'].checked = true;
+				JethroDateRangePicker.updateDisplayValue(this, 'relative');
+				break;
+			case this.value == '*':
+				radiosByVal['any'].checked = true;
+				JethroDateRangePicker.updateDisplayValue(this, 'any');
+				break;
+			default:
+				console.log("Did not diagnose value "+this.value);
+		}
+	});
+
+	$('.date-range-picker select.dropdown-toggle').on('mousedown', function(event) {
+		this.oldValue = this.value;
+		this.oldLabel = this.options[0].innerHTML;
+		this.options[0].innerHTML = 'Choose date option:'
+
+		var menu = $(this.parentNode).find('.dropdown-menu');
+		menu.show();
+
+		event.stopPropagation(); 
+		event.preventDefault(); 
+		return false;
+
+	});
+
+	$('.date-range-picker button.cancel').on('click', function(event) {
+		var menu = $(this).parents('.date-range-picker').find('.dropdown-menu');
+		menu.hide();
+		var toggle = $(this).parents('.date-range-picker').find('.dropdown-toggle').get(0);
+		toggle.options[0].innerHTML = toggle.oldLabel;
+
+		event.stopPropagation(); 
+		event.preventDefault(); 
+		return false;
+	});
+
+	$('.date-range-picker button.save').on('click', function(event) {
+		var menu = $(this).parents('.date-range-picker').find('.dropdown-menu');
+		menu.hide();
+		var toggle = $(this).parents('.date-range-picker').find('.dropdown-toggle').get(0);
+		toggle.options[0].innerHTML = toggle.oldLabel;
+		var selectedType = menu.find('input[type=radio]:checked').val();
+		switch (selectedType) {
+			case 'any':
+				toggle.options[0].value = '*';
+				toggle.options[0].innerHTML = 'any date';
+				break;
+			case 'relative':
+				var v = {};
+				var drp = $(this).parents('.date-range-picker');
+				v['direction'] = drp.find('select[name=drp_relative_direction]').val()
+				v['y'] = drp.find('input[name=drp_relative_y]').val() || "0"
+				v['m'] = drp.find('input[name=drp_relative_m]').val() || "0"
+				v['d'] = drp.find('input[name=drp_relative_d]').val() || "0"
+				// todo: zeros
+				toggle.options[0].value = v['direction']+v['y']+'y'+v['m']+'m'+v['d']+'d';
+				break;
+			case 'exact':
+				var drp = $(this).parents('.date-range-picker');
+				toggle.options[0].value = drp.find('input[name=drp_exact_y]').val() + '-'
+							+ drp.find('select[name=drp_exact_m]').val().padStart(2,0) + '-'
+							+ drp.find('input[name=drp_exact_d]').val().padStart(2,0);
+				break;
+		}
+		JethroDateRangePicker.updateDisplayValue(toggle, selectedType);
+
+	});
+
+	// When something in a datepicker is clicked (e.g. 'years') select the corresponding radio button ('relative date')
+	$('.date-range-picker .dropdown-menu').on('click', function(e) {
+		$(e.target)
+			.closest('tr')
+			.find('input[type="radio"]')
+			.prop('checked', true);
+	});
+
+
+
 	/************************ SEARCH CHOOSERS ************************/
 
 	$('input.person-search-multiple').each(function() {
@@ -196,7 +328,7 @@ $(document).ready(function() {
 				.modal('show')
 				.on('shown', function() {
 					$(this).find('input#rename-file')
-								.attr('name', 'renamefile['+filename+']')
+								.attr('name', 'renamefile['+encodeURIComponent(filename)+']')
 								.attr('value', filename);
 					TBLib.selectBasename.apply($(this).find('input#rename-file').get(0));
 			});
@@ -206,7 +338,7 @@ $(document).ready(function() {
 			$('#replace-file-modal')
 				.modal('show')
 				.find('input#replace-file')
-					.attr('name', 'replacefile['+filename+']')
+					.attr('name', 'replacefile['+encodeURIComponent(filename)+']')
 				.end()
 				.find('span#replaced-filename')
 					.html(filename)
@@ -233,7 +365,7 @@ $(document).ready(function() {
 				.modal('show')
 				.on('shown', function() {
 							$(this).find('select#move-file')
-								.attr('name', 'movefile['+filename+']')
+								.attr('name', 'movefile['+encodeURIComponent(filename)+']')
 								.focus();
 			});
 		});
@@ -257,9 +389,9 @@ $(document).ready(function() {
 		var selectedInputs = $('#'+this.value+' input, #'+this.value+' select, #'+this.value+' textarea');
 		selectedInputs
 				.attr('disabled', false)
-				.filter(':visible:first').focus();
+				.filter('[type!=radio]:visible:first').focus();
 		selectedInputs.filter('[data-toggle=enable]').attr('disabled', false).change();
-	});
+	}).change();;
 
 	$('form.bulk-person-action').submit(function(event) {
 		var checkboxes = document.getElementsByName('personid[]');
@@ -406,6 +538,13 @@ $(document).ready(function() {
 		}
 	}).change();
 
+	// PHOTO TOOLS
+	$('.photo-tools input[type=file]').change(function() {
+		var fn = this.files[0].name;
+		$(this).parents('.photo-tools').find('.new-photo-name').css('display', 'inline').val(fn);
+		$(this).parents('.photo-tools').find('img').remove();
+	})
+
 	// FAMILY PHOTOS
 
 	handleFamilyPhotosLayout();
@@ -541,6 +680,17 @@ $(document).ready(function() {
 			}
 		})
 	}
+	
+	// Allow plus/minus key events to increase/decrease number fields
+	document.querySelectorAll('input[type="number"]').forEach(input => {
+		input.addEventListener('keydown', event => {
+			if (['-', '+'].includes(event.key) && input.value) {
+				event.preventDefault()
+				
+				input.value = parseInt(input.value) + (event.key == '-' ? -1 : 1)
+			}
+		})
+	})
 });
 
 
@@ -1035,6 +1185,109 @@ JethroServiceProgram.copyServiceDetails = function(sourceCell, targetCell) {
 
 
 
+// Implements 'Copy from previous' previewing when editing a service
+var JethroServicePlannerCopier = (function($) {
+	// private variables
+	var $serviceSelect;
+	var $preview;
+
+	// -----------------------------
+	// Private helpers
+	// -----------------------------
+
+	function renderPreview(items) {
+		$preview.empty();
+		var newtable = "<table class='table table-bordered  table-condensed no-autofocus'>";
+		$.each(items, function(_, it) {
+			newtable += "<tr data-componentid='" + (it.categoryid ? it.categoryid : '!') +
+				"' class='service-item'><td class='item'>" +
+				it.title + "</td></tr>";
+		});
+		newtable += "</table>";
+		$preview.append(newtable);
+	}
+
+	function loadCopiedServicePreview(serviceId) {
+		if (!serviceId) {
+			$preview.html('<em>Preview will appear here after selecting a previous service.</em>');
+			return;
+		}
+		var url = '?call=service_plan_runsheet&serviceid=' + encodeURIComponent(serviceId);
+		$.getJSON(url, function(data) {
+			if (Array.isArray(data)) {
+				renderPreview(data);
+				updateCopiedServicePreviewSelectedItems();
+			} else {
+				$preview.html('<em>Unable to load preview.</em>');
+			}
+		}).fail(function() {
+			$preview.html('<em>Error loading preview.</em>');
+		});
+	}
+
+
+	// Update visibility of preview rows based on selected category checkboxes
+	function updateCopiedServicePreviewSelectedItems() {
+		var checked = $('input[name="copy_category_ids[]"]:checked').map(function() {
+			return String($(this).val());
+		}).get();
+
+		var $rows = $preview.find('tr[data-componentid]');
+		if ($rows.length === 0) return;
+
+		if (checked.length === 0) {
+			$rows.addClass("muted");
+			return;
+		}
+
+		$rows.each(function() {
+			var $r = $(this);
+			var compid = String($r.data('componentid'));
+			if (checked.indexOf(compid) !== -1) {
+				$r.removeClass("muted");
+			} else {
+				$r.addClass("muted");;
+			}
+		});
+	}
+
+	// 'Copy from previous' Helper Public API
+	return {
+		init: function() {
+			$serviceSelect = $('[name=copy_service_id]'); // Which previous service to (maybe) copy
+			$preview = $('#copy-previous-preview');   // Previewer div
+
+			// 'Items to copy' checkboxes change handler
+			$('input[name="copy_category_ids[]"]').on('change', function() {
+				updateCopiedServicePreviewSelectedItems();
+			});
+
+			if ($serviceSelect.length) {
+				// 'Service to copy from' select-list change handler
+				$serviceSelect.on('change', function() {
+					loadCopiedServicePreview($(this).val());
+				});
+				// Preload the default selected service
+				if ($serviceSelect.val()) {
+					loadCopiedServicePreview($serviceSelect.val());
+				}
+			}
+
+			// When the 'Copy from previous' modal opens, auto-focus the 'Service to copy from' select list
+			$('#copy-previous-modal').on('shown', function () {
+				$('[name="copy_service_id"]').focus();
+			});
+		}
+	};
+
+})(jQuery);
+
+
+
+
+
+
+
 var JethroServicePlanner = {};
 
 JethroServicePlanner.draggedComp = null;
@@ -1073,7 +1326,7 @@ JethroServicePlanner.init = function() {
     $("#service-comps tbody tr").draggable({
 		containment: "#service-planner",
 		helper: "clone",
-		cursor: "move",
+		cursor: "grabbing",
 		start: function(event, ui) {
 			$('#service-plan').addClass('comp-dragging');
 			ui.helper.remove();
@@ -1097,7 +1350,8 @@ JethroServicePlanner.init = function() {
 		JethroServicePlanner.addFromComponent($(this));
 	})
 
-	$("#service-comps td, #service-plan td").css('cursor', 'default').disableSelection();
+	$("#service-comps tbody").css('cursor', 'grab').disableSelection();
+	$(" #service-plan tbody").css('cursor', 'move').disableSelection();
 
 	// SERVICE PLAN TABLE:
 	JethroServicePlanner.setDroppable($("#service-plan tbody tr"));
@@ -1863,4 +2117,20 @@ function handleFamilyFormSubmit()
 		return false;
 	}
 	return true;
+}
+
+/************************* GROUPS ************************/
+$(document).ready(function() {
+	const form = document.querySelector('#edit-roster_role')
+	if (!form) {
+		return
+	}
+	
+	document.querySelector('select[name=assign_multiple]').addEventListener('change', updateTeams)
+	updateTeams()
+})
+
+function updateTeams() {
+	const assign_multiple = document.querySelector('select[name=assign_multiple]').value == '1'
+	document.querySelector('#field-teams').hidden = !assign_multiple
 }

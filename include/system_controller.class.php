@@ -72,9 +72,6 @@ class System_Controller
 
 	public function initErrorHandler()
 	{
-		$error_level = defined('E_DEPRECATED') ? (E_ALL & ~constant('E_DEPRECATED') /*& ~constant('E_STRICT')*/) : E_ALL;
-		error_reporting($error_level);
-
 		set_error_handler(Array($this, '_handleError'));
 		set_exception_handler(Array($this, '_handleException'));
 	}
@@ -122,7 +119,7 @@ class System_Controller
 				require_once $this->_base_dir.'/views/'.$view_filename;
 				$view_perm = call_user_func(Array($view_classname, 'getMenuPermissionLevel'));
 				if (!empty($view_perm) && !$GLOBALS['user_system']->havePerm($view_perm)) {
-					trigger_error("You don't have permission to access this view", E_USER_ERROR); // exits
+					throw new \RuntimeException("You don't have permission to access this view"); // exits
 				}
 				$this->_view = new $view_classname();
 				$this->_view->processView();
@@ -159,7 +156,7 @@ class System_Controller
 		foreach ($_SESSION['views'][$this->_base_dir] as $name => $data) {
 			if ($name[0] == '_') continue;
 			$class = '';
-			if (($current_view == $name) || (strpos($current_view, $name.'__') === 0)) $class = 'active';
+			if ($current_view == $name || str_starts_with($current_view, $name.'__')) $class = 'active';
 			if (empty($data['children'])) {
 				// deliberately - only leaf nodes can be navigated to directly
 				?>
@@ -237,7 +234,7 @@ class System_Controller
 			case 'ROLLBACK':
 				// Rollback always rolls back everything
 				@$GLOBALS['db']->rollback();
-				$this->_transaction_depth--;
+				$this->_transaction_depth = 0;
 		}
 	}
 
@@ -249,6 +246,8 @@ class System_Controller
 	public function _handleError($errno, $errstr, $errfile, $errline)
 	{
 		if (error_reporting() == 0) return; // the "@" shutup-operator was used
+		$PHP_8_SUPPRESSED = E_ERROR | E_CORE_ERROR | E_COMPILE_ERROR | E_USER_ERROR | E_RECOVERABLE_ERROR | E_PARSE;
+		if (error_reporting() == $PHP_8_SUPPRESSED) return; // the "@" shutup-operator was used
 		$send_email = true;
 		$showTechDetails = ifdef('SHOW_ERROR_DETAILS', (JETHRO_VERSION == 'DEV'));	
 		$exit = false;
@@ -272,16 +271,24 @@ class System_Controller
 			case E_USER_NOTICE:
 				$send_email = false; // never send emails for E_USER_NOTICE
 				if ($this->_friendly_errors || (!headers_sent() && !$showTechDetails)) {
+					// we want to show a friendly-style message, so we'll add a message 
+					// to the queue, to be shown when appropriate (maybe after a redirect)
 					add_message('Error: '.$errstr, 'failure');
 					return;
 				} else if (!$showTechDetails) {
-					// if headers are sent, print it now - we don't want it on the next page load
+					// because this is just an E_USER_NOTICE, and we don't want to display tech details,
+					// we'll show it as a friendly message. But since the message queue has already been
+					// flushed, we'll go ahead and print it right now
 					print_message('Error: '.$errstr, 'failure');
 					return;
-				}
+				} // else we fall through to the normal _reportError() handling.
 				$bg = 'warning';
 				$title = 'NOTICE';
 				break;
+			case E_DEPRECATED:
+				// Log deprecations, but don't print anything to the browser. #1250
+				error_log("$errstr - Line $errline of $errfile");
+				return;
 			default:
 				$bg = 'info';
 				$title = 'SYSTEM ERROR';
@@ -309,13 +316,14 @@ class System_Controller
 
 		$showTechDetails = ifdef('SHOW_ERROR_DETAILS', (JETHRO_VERSION == 'DEV'));
 		if ($bg) {
+			if (!headers_sent()) http_response_code(500);
 			?>
 			<div class="alert<?php if(isset($bg)){ echo" alert-".$bg;} ?>">
 			<?php
 			if ($showTechDetails || !$send_email) {
 				?>
 				<h4><?php echo $title; ?></h4>
-				<p><?php echo $errstr; ?></p>
+				<p><?php echo ents($errstr); ?></p>
 				<?php
 			} else {
 				echo _('An error occurred. Please contact your system administrator for help.');
@@ -346,7 +354,7 @@ class System_Controller
 			$content .= "REQUEST: \n".print_r($safe_request,1)."\n\n";
 			$content .= "BACKTRACE:\n";
 			$content .= print_r($bt, 1);
-			@mail(constant('ERRORS_EMAIL_ADDRESS'), 'Jethro Error from '.BASE_URL, $content);
+			@mail(constant('ERRORS_EMAIL_ADDRESS'), 'Jethro Error from '.base_url(), $content);
 		}
 		if ($send_email) error_log("$errstr - Line $errline of $errfile");
 	}
@@ -364,7 +372,7 @@ class System_Controller
 		while ($dir && ($hook_file = readdir($dir))) {
 			if (is_dir(JETHRO_ROOT.'/hooks/'.$hook_file)) continue;
 			if ($hook_file[0] == '.') continue;
-			if (0 === strpos($hook_file, 'sample.')) continue;
+			if (str_starts_with($hook_file, 'sample.')) continue;
 			require_once 'hooks/'.$hook_name.'/'.$hook_file;
 			$class_name = str_replace('.class.php', '', $hook_file);
 			call_user_func(Array($class_name, 'run'), $params);
@@ -375,17 +383,6 @@ class System_Controller
 	{
 		$enabled_features = explode(',', strtoupper(ifdef('ENABLED_FEATURES', '')));
 		return in_array(strtoupper($feature), $enabled_features);
-	}
-
-	public static function checkConfigHealth()
-	{
-		if (REQUIRE_HTTPS && (FALSE === strpos(BASE_URL, 'https://'))) {
-			trigger_error("Configuration file error: If you set REQUIRE_HTTPS to true, your BASE_URL must start with https", E_USER_ERROR);
-		}
-
-		if (substr(BASE_URL, -1) != '/') {
-			trigger_error("Configuration file error: Your BASE_URL must end with a slash", E_USER_ERROR);
-		}
 	}
 
 	public function setGlobalHeaders()

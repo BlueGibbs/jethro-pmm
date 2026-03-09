@@ -10,6 +10,30 @@ class Documents_Manager {
 		}
 	}
 
+	/**
+     * Get directories that Members should be able to access, and that exist. Paths are either absolute or relative to DOCUMENTS_ROOT_PATH.
+	 */
+	public static function getMemberFilesDirs(): array
+	{
+		$dirs = array();
+		if (defined('MEMBER_VISIBLE_FOLDERS')) {
+			foreach (explode('|', MEMBER_VISIBLE_FOLDERS) as $dir) {
+				// Enforce relativeness and existence
+				if ($reldir = safe_subdirectory(DOCUMENTS_ROOT_PATH, $dir)) {
+					$dirs[] = $reldir;
+				}
+			}
+		}
+		// For backwards-compatibility. Note we don't check for existence, again for backwards-compatibility.
+		if (defined('MEMBER_FILES_DIRS')) {
+			foreach (array_remove_empties(explode('|', MEMBER_FILES_DIRS)) as $dir) {
+				$dirs[] = $dir;
+			}
+		}
+		return array_unique($dirs);
+	}
+
+
 	// If $filename is an acceptable filename (extension not prohibited, no leading dot, no slashes)
 	// returns it intact; else triggers an error and returns blank string
 	public static function validateFileName($filename) {
@@ -34,11 +58,11 @@ class Documents_Manager {
 	{
 		$bits = explode('/', $path);
 		if (in_array('.', $bits) || in_array('..', $bits)) {
-			trigger_error('Dot or double-dot not allowed in directory parameter', E_USER_ERROR); //exits
+			throw new \RuntimeException('Dot or double-dot not allowed in directory parameter'); //exits
 		}
 		$res = self::getRootPath().implode('/', $bits);
 		if (!is_dir($res)) {
-			trigger_error("Specified folder does not exist", E_USER_ERROR); // exits
+			throw new \RuntimeException("Specified folder does not exist"); // exits
 		}
 		return $res;
 	}
@@ -47,7 +71,7 @@ class Documents_Manager {
 	// Else triggers an error and returns empty string
 	public static function validateDirName($name) {
 		$name = str_replace(' ', '_', $name);
-		if (!preg_match('/[-_A-Za-z0-9&]+/', $name)) {
+		if (!preg_match('/^[-_A-Za-z0-9&]+$/', $name)) {
 			trigger_error("Invalid folder name");
 			return '';
 		}
@@ -57,6 +81,7 @@ class Documents_Manager {
 	
 	public static function serveFile($filename)
 	{
+		$filename = realpath($filename); // resolve any trickiness like ../..
 		if (0 !== strpos($filename, self::getRootPath())) {
 			trigger_error("Illegal file path requested: $filename");
 			exit;

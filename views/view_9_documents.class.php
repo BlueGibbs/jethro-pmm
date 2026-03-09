@@ -29,7 +29,7 @@ class View_Documents extends View
 	{
 		$this->_rootpath = Documents_Manager::getRootPath();
 		if (!is_dir($this->_rootpath)) {
-			trigger_error("Documents root path ".$this->_rootpath.' does not exist, please check your config file', E_USER_ERROR); // exits
+			throw new \RuntimeException("Documents root path ".$this->_rootpath.' does not exist, please check your config file'); // exits
 		}
 		$this->_realdir = $this->_rootpath;
 		$this->_messages = Array();
@@ -77,7 +77,7 @@ class View_Documents extends View
 						add_message("Your file could not be saved because the file is too big.", 'error');
 						return NULL;
 					} else {
-						trigger_error("Technical error uploading photo file: Error #".$error, E_USER_ERROR);
+						throw new \RuntimeException("Technical error uploading photo file: Error #".$error);
 					}
 				}
 			}
@@ -85,6 +85,7 @@ class View_Documents extends View
 				foreach ($_FILES['replacefile']['error'] as $origname => $error) {
 					if (($error == UPLOAD_ERR_OK) && ($origname = Documents_Manager::validateFileName($origname))) {
 						$tmp_name = $_FILES["replacefile"]["tmp_name"][$origname];
+						$origname = urldecode($origname);
 						if (file_exists($this->_realdir.'/'.$origname)) {
 							if (move_uploaded_file($tmp_name, $this->_realdir.'/'.$origname)) {
 								if ($p = fileperms($this->_rootpath)) chmod($this->_realdir.'/'.$origname, $p);
@@ -105,6 +106,7 @@ class View_Documents extends View
 			}
 			if (!empty($_POST['renamefile'])) {
 				foreach ($_POST['renamefile'] as $origname => $newname) {
+					$origname = urldecode($origname);
 					if (($newname = Documents_Manager::validateFileName($newname)) && ($origname = Documents_Manager::validateFileName($origname))) {
 						if (file_exists($this->_realdir.'/'.$origname) && rename($this->_realdir.'/'.$origname, $this->_realdir.'/'.$newname)) {
 							$this->_addMessage("$origname renamed to $newname");
@@ -114,6 +116,7 @@ class View_Documents extends View
 			}
 			if (!empty($_POST['movefile'])) {
 				foreach ($_POST['movefile'] as $filename => $newdir) {
+					$filename = urldecode($filename);
 					if (($filename = Documents_Manager::validateFileName($filename)) && ($fulldir = Documents_Manager::validateDirPath($newdir))) {
 						if (rename($this->_realdir.'/'.$filename, $fulldir.'/'.$filename)) {
 							$this->_addMessage("\"$filename\" moved to folder \"$newdir\"");
@@ -132,7 +135,7 @@ class View_Documents extends View
 				if ($filename = Documents_Manager::validateFileName($_POST['savefile'])) {
 					if (!Documents_Manager::isHTML($filename)) {
 						// Append .html if entered filename has missing or non-HTML extension
-						$filename.+".html";
+						$filename .= ".html";
 					}
 					if (!empty($_POST['isnew']) && file_exists($this->_realdir.'/'.$filename)) {
 						trigger_error("$filename already exists in this folder.  Please choose another name.");
@@ -213,7 +216,7 @@ class View_Documents extends View
 					</div>
 					<div class="modal-body">
 						<input type="file" name="newfile[]" multiple="multiple" max-bytes="<?php echo file_upload_max_size(); ?>" />
-						<p class="upload-progress hide">Uploading...<br /><img src="resources/img/progress.gif" /></p>
+						<p class="upload-progress hide">Uploading...<br /><img src="<?php echo BASE_URL; ?>/resources/img/progress.gif" /></p>
 					</div>
 					<div class="modal-footer">
 						<button type="submit" class="btn" accesskey="s">Go</button>
@@ -229,7 +232,7 @@ class View_Documents extends View
 					</div>
 					<div class="modal-body">
 						<input type="file" id="replace-file" name="replacefile[X]" max-bytes="<?php echo file_upload_max_size(); ?>" />
-						<p class="upload-progress hide">Uploading...<br /><img src="resources/img/progress.gif" /></p>
+						<p class="upload-progress hide">Uploading...<br /><img src="<?php echo BASE_URL; ?>/resources/img/progress.gif" /></p>
 					</div>
 					<div class="modal-footer">
 						<button type="submit" class="btn" accesskey="s">Go</button>
@@ -398,20 +401,20 @@ class View_Documents extends View
 					?>
 					<form class="min" method="post" target="_parent" action="<?php echo $parentaction ?>">
 						<input type="hidden" name="deletefolder" value="1" />
-						<input type="image" title="Delete this folder" class="confirm-title" src="resources/img/folder_delete.png" />
+						<input type="image" title="Delete this folder" class="confirm-title" src="<?php echo BASE_URL; ?>/resources/img/folder_delete.png" />
 					</form>
 					<?php
 				}
 				?>
-				<a href="#rename-folder-modal" data-toggle="modal"><img title="Rename this folder" src="resources/img/folder_edit.png"/></a>
+				<a href="#rename-folder-modal" data-toggle="modal"><img title="Rename this folder" src="<?php echo BASE_URL; ?>/resources/img/folder_edit.png"/></a>
 				<?php
 			}
 			?>
-				<a href="#add-folder-modal" data-toggle="modal"><img title="Add new sub-folder" data-togl src="resources/img/folder_add.png" /></a>
+				<a href="#add-folder-modal" data-toggle="modal"><img title="Add new sub-folder" data-togl src="<?php echo BASE_URL; ?>/resources/img/folder_add.png" /></a>
 
-				<a href="<?php echo build_url(Array('editfile' => '_new_')); ?>"><img title="Edit new HTML document" src="resources/img/document_new.png" /></a>
+				<a href="<?php echo build_url(Array('editfile' => '_new_')); ?>"><img title="Edit new HTML document" src="<?php echo BASE_URL; ?>/resources/img/document_new.png" /></a>
 
-				<a href="#upload-file-modal" data-toggle="modal"><img title="Upload new file" src="resources/img/document_upload.png" /></a>
+				<a href="#upload-file-modal" data-toggle="modal"><img title="Upload new file" src="<?php echo BASE_URL; ?>/resources/img/document_upload.png" /></a>
 			</div><!-- .document-icons -->
 
 			<?php
@@ -461,7 +464,7 @@ class View_Documents extends View
 				<tr>
 					<td class="filename middle">
 						<a href="<?php echo build_url(array('call'=>null, 'view' => 'documents', 'dir' => $this->getPrintedDir().'/'.$dirname)); ?>" target="_parent">
-						<img src="resources/img/folder.png" style="margin-right: 5px" /><?php echo ents($dirname); ?></a>
+						<img src="<?php echo BASE_URL; ?>/resources/img/folder.png" style="margin-right: 5px" /><?php echo ents($dirname); ?></a>
 					</td>
 					<td class="file-detail">&nbsp;</td>
 					<td class="file-detail"><?php echo format_datetime($dirinfo[$dirname]['mtime']); ?></td>
@@ -575,4 +578,3 @@ class View_Documents extends View
 
 
 }
-?>

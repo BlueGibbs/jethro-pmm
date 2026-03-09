@@ -156,12 +156,25 @@ class View_Attendance__Display extends View
 	{
 		$GLOBALS['system']->includeDBClass('attendance_record_set');
 		$GLOBALS['system']->includeDBClass('person');
+		
+		?>
+		<form method="post" action="" class="bulk-person-action" enctype="multipart/form-data">
+		<?php
 
 		if (!empty($this->cohortids)) {
 			foreach ($this->cohortids as $cohortid) {
 				if (empty($cohortid)) continue;
 				$this->_printResultSet($cohortid);
 			}
+		}
+		include 'templates/bulk_actions.template.php';
+		?>
+		</form>
+		<?php
+		if ($GLOBALS['user_system']->havePerm(PERM_RUNREPORT)) {
+			?>
+			<div class="alert alert-info"><small><i class="icon-info-sign"></i> You can also use <a href="?view=persons__reports">Person Reports</a> to show and analyze attendance</div>
+			<?php
 		}
 	}
 
@@ -189,7 +202,7 @@ class View_Attendance__Display extends View
 		
 		foreach ($this->statuses as $status) {
 			if ($status && ($status[0] == 'g') && empty($groupid)) {
-				print_message(_('"Congregational attendance cannot be filtered by a group membership status. Please clear the status filter to display attendance for this congregation."'), 'error');
+				print_message(_('Congregational attendance cannot be filtered by a group membership status. Please clear the status filter to display attendance for this congregation.'), 'error');
 				return;
 			}
 		}
@@ -203,7 +216,6 @@ class View_Attendance__Display extends View
 		$headcounts = Headcount::fetchRange(($congid ? 'congregation' : 'person_group'), $congid ? $congid : $groupid, $this->start_date, $this->end_date);
 		$dummy = new Person();
 		?>
-		<form method="post" action="" class="bulk-person-action" enctype="multipart/form-data">
 		<table class="table table-hover table-auto-width nowrap table-bordered table-condensed">
 			<thead>
 				<tr>
@@ -327,10 +339,7 @@ class View_Attendance__Display extends View
 			?>
 			</tfoot>
 		</table>
-		<?php
-		include 'templates/bulk_actions.template.php';
-		?>
-		</form>
+
 		<?php
 	}
 	
@@ -428,7 +437,7 @@ class View_Attendance__Display extends View
 				}
 				?>
 					<th <?php if ($this->format != 'totals') echo 'rowspan="2"'; ?>></th>
-					<th class="narrow selector form-inline" rowspan="2"><input type="checkbox" class="select-all" title=<?php echo _('"Select all"');?> /></th>					
+					<th class="narrow selector form-inline" rowspan="2"><input type="checkbox" class="select-all" title="<?php echo _('Select all');?>" /></th>
 				</tr>
 
 			<?php
@@ -628,6 +637,10 @@ class View_Attendance__Display extends View
 		?>
 		</form>
 		<?php
+		if ($GLOBALS['user_system']->havePerm(PERM_RUNREPORT)) {
+			?>
+			<div class="alert alert-info"><small><i class="icon-info-sign"></i> You can also use <a href="?view=persons__reports">Person Reports</a> to show and analyze attendance</div>
+			<?php
+		}
 	}
 }
-?>

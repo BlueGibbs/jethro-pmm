@@ -536,8 +536,11 @@ class View_Services__List_All extends View
 
 				<tr <?php echo $class_clause; ?>>
 					<td class="service-date"><strong><?php echo date('j M y', strtotime($date)); ?></strong><br />
-					<input type="image" name="delete_all_date" value="<?php echo $date; ?>" src="<?php echo BASE_URL; ?>/resources/img/cross_red.png" class="confirm-shift" title="Delete all services on this date" /></td>
-				<?php
+					<button type="button" name="delete_all_date" value="<?php echo $date; ?>" class="confirm-shift" title="Delete all services on this date">
+						<img  src="<?php echo BASE_URL; ?>/resources/img/cross_red.png" />
+					</button>
+					</td>
+					<?php
 				foreach ($this->_congregations as $i => $congid) {
 					?>
 					<td class="left-tools">
@@ -553,8 +556,12 @@ class View_Services__List_All extends View
 						}
 						if (isset($services[$congid])) {
 							?>
-							<input type="image" name="delete_single" value="<?php echo $services[$congid]['id']; ?>" src="<?php echo BASE_URL; ?>/resources/img/cross_red.png" class="delete-single confirm-shift" title="Delete this service" />
-							<?php
+
+							<button type="button" name="delete_single" value="<?php echo $services[$congid]['id']; ?>"  class="delete-single confirm-shift" title="Delete this service">
+								<img src="<?php echo BASE_URL; ?>/resources/img/cross_red.png">
+							</button>
+
+<?php
 						}
 						?>
 					</td>
@@ -680,7 +687,7 @@ class View_Services__List_All extends View
 					<?php
 					$readings = array_get($data, 'readings');
 					if (empty($readings)) {
-						$readings = Array(Array('to_read' => 1));
+						$readings = Array(Array('to_read' => 1, 'to_preach' => 1));
 					}
 					foreach ($readings as $reading) {
 						?>
@@ -702,7 +709,7 @@ class View_Services__List_All extends View
 									<input type="hidden" name="bible_to_read[<?php echo $congid; ?>][<?php echo $date; ?>][]" value="<?php echo (int)array_get($reading, 'to_read'); ?>" />
 								</label>
 
-								<label title="to be preached on">
+								<label title="to be preached on" class="preserve-value">
 									P
 									<input type="checkbox" class="toggle-next-hidden bible-to-preach" />
 									<input type="hidden" name="bible_to_preach[<?php echo $congid; ?>][<?php echo $date; ?>][]" value="<?php echo (int)array_get($reading, 'to_preach'); ?>" />
@@ -735,4 +742,3 @@ class View_Services__List_All extends View
 	}
 
 }
-?>

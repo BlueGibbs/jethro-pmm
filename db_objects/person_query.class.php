@@ -232,7 +232,7 @@ class Person_Query extends DB_Object
 				?>
 					<tr>
 						<td>
-							<label class="checkbox">
+							<label class="checkbox nowrap">
 								<input autofocus="1" type="checkbox" name="enable_custom_field[]"
 									   value="<?php echo $fieldid; ?>"
 									   id="enable_custom_<?php echo $fieldid; ?>"
@@ -254,9 +254,10 @@ class Person_Query extends DB_Object
 												'type' => 'select',
 												'options' => Array(
 													'any' => 'filled in with any value',
-													'empty' => 'not filled in',
-													'exact' => 'with exact value within...',
-													'anniversary' => 'with exact value or anniversary within...',
+													'empty' => 'not filled in at all',
+													'exact' => 'with exact value within the period...',
+													'anniversary' => 'with exact value or anniversary within the period...',
+													'not' => 'withOUT a value within the period...',
 												),
 												'attrs' => Array(
 													'data-toggle' => 'visible',
@@ -265,38 +266,20 @@ class Person_Query extends DB_Object
 												),
 											);
 									print_widget('params_custom_field_'.$fieldid.'_criteria', $cparams, array_get($value, 'criteria'));
-									$pts = Array('fixed' => '', 'relative' => '');
-									$pts[array_get($value, 'periodtype', 'fixed')] = 'checked="checked"';
 									?>
-									<div class="datefield-rule-period" data-select-rule-type="exact anniversary">
-										<label class="checkbox nowrap">
-											<input type="radio" name="params_custom_field_<?php echo $fieldid; ?>_periodtype" value="fixed" <?php echo $pts['fixed']; ?> />
-											the period from
-											<?php print_widget('params_custom_field_'.$fieldid.'_from', Array('type' => 'date', 'allow_empty' => TRUE), array_get($value, 'from')); ?>
-											to
-											<?php print_widget('params_custom_field_'.$fieldid.'_to', Array('type' => 'date', 'allow_empty' => TRUE), array_get($value, 'to')); ?>
-										</label>
-										<label class="checkbox">
-											<input type="radio" name="params_custom_field_<?php echo $fieldid; ?>_periodtype" value="relative"<?php echo $pts['relative']; ?> />
-											the
-											<?php print_widget('params_custom_field_'.$fieldid.'_periodlength', Array('type' => 'int'), array_get($value, 'periodlength', 14)); ?>
-											day period
-											<?php print_widget('params_custom_field_'.$fieldid.'_periodanchor',
-													Array(
-														'type' => 'select',
-														'options' => Array(
-																		'before' => 'before',
-																		'ending' => 'ending on',
-																		'starting' => 'starting on',
-																		'after' => 'after',
-																	)
-													),
-													array_get($value, 'periodanchor', 'ending')
-											); ?>
-											the day the report is executed
-										</label>
-
+									<div class="datefield-rule-period" data-select-rule-type="exact anniversary not">
+										<table class="table-no-borders">
+											<tr>
+												<td class="narrow valign-middle">from</td>
+												<td><?php $this->_printDateRangeBoundaryChooser('params_custom_field_'.$fieldid.'_from', array_get($value, 'from')); ?></td>
+											</tr>
+											<tr>
+												<td class="narrow valign-middle">to</td>
+												<td><?php $this->_printDateRangeBoundaryChooser('params_custom_field_'.$fieldid.'_to', array_get($value, 'to')); ?></td>
+											</tr>
+										</table>
 									</div>
+
 									<?php
 									break;
 								case 'select':
@@ -306,6 +289,7 @@ class Person_Query extends DB_Object
 													'any' => 'filled in with any value',
 													'empty' => 'not filled in',
 													'contains' => 'with value that contains',
+													'not' => 'NOT containing',
 												),
 												'attrs' => Array(
 													'data-toggle' => 'visible',
@@ -319,7 +303,7 @@ class Person_Query extends DB_Object
 										'options' => $dummyField->getOptions(),
 										'allow_multiple' => true,
 										'attrs' => Array(
-											'data-select-rule-type' => 'contains'
+											'data-select-rule-type' => 'contains not'
 										)
 									);
 									if (!empty($fieldDetails['params']['allow_other'])) {
@@ -339,6 +323,7 @@ class Person_Query extends DB_Object
 													'any' => 'filled in with any value',
 													'empty' => 'not filled in',
 													'equal' => 'with value equal to',
+													'not-equal' => 'with value NOT equal to',
 												),
 												'attrs' => Array(
 													'data-toggle' => 'visible',
@@ -350,7 +335,7 @@ class Person_Query extends DB_Object
 									$vparams = Array(
 										'type' => 'text',
 										'attrs' => Array(
-											'data-select-rule-type' => 'equal'
+											'data-select-rule-type' => 'equal not-equal'
 										)
 									);
 									print_widget(
@@ -444,8 +429,55 @@ class Person_Query extends DB_Object
 		</div>
 		<?php
 	}
+?>
 
-	if ($GLOBALS['user_system']->havePerm(PERM_VIEWNOTE)) {
+        <h4>who <strong>have a family member</strong> in one or more of these groups:
+            <i class="clickable icon-question-sign" data-toggle="visible" data-target="#grouptooltip3"></i><div class="help-block custom-field-tooltip" id="grouptooltip3" style="display: none; font-weight: normal">For example, find the family of Youth Group members. In the "Show me" section, you may add 'Names of family member in the specified group' to see the family member who is in the picked group.</div>
+        </h4>
+        <div class="indent-left">
+
+
+			<?php
+            // Logic identical to 'include_groups' above, but with 'familymember' in field names
+			$gotGroups = Person_Group::printMultiChooser('include_familymember_groupids', array_get($params, 'include_familymember_groups', Array()), Array(), TRUE);
+
+			if ($gotGroups) {
+				?>
+                <div class="indent-left">
+                    <label class="checkbox" style="margin-top: 1ex">
+                        <input type="checkbox" name="enable_familymember_group_membership_status" value="1"
+                               data-toggle="visible" data-target="#familymember-membership-status"
+							<?php if (!empty($params['familymember_group_membership_status'])) echo 'checked="checked"'; ?>
+                        />
+                        with membership status of...
+                    </label>
+                    <span id="familymember-membership-status"
+							<?php if (empty($params['familymember_group_membership_status'])) echo 'style="display:none"'; ?>
+					>
+						<?php Person_Group::printMembershipStatusChooser('familymember_group_membership_status', array_get($params, 'familymember_group_membership_status'), true); ?>
+					</span>
+
+                    <label class="checkbox" style="margin-top: 1ex">
+                        <input type="checkbox" name="enable_familymember_group_join_date" value="1"
+                               data-toggle="visible" data-target="#familymember-group-join-dates"
+							<?php if (!empty($params['familymember_group_join_date_from'])) echo 'checked="checked"'; ?>
+                        />
+                        and joined the group between...
+                    </label>
+                    <span id="familymember-group-join-dates"
+								<?php if (empty($params['familymember_group_join_date_from'])) echo 'style="display:none"'; ?>
+						  >
+					<?php print_widget('familymember_group_join_date_from', Array('type' => 'date'), array_get($params, 'familymember_group_join_date_from')); ?>
+					and <?php print_widget('familymember_group_join_date_to', Array('type' => 'date'), array_get($params, 'familymember_group_join_date_to')); ?>
+					</span>
+                </div>
+				<?php
+			}
+			?>
+        </div>
+
+		<?php
+		if ($GLOBALS['user_system']->havePerm(PERM_VIEWNOTE)) {
 		?>
 		<h4>who have a person/family note containing the phrase:</h4>
 		<div class="indent-left">
@@ -492,7 +524,7 @@ class Person_Query extends DB_Object
 	}
 	?>
 
-		<h3>For each person found, show me...</h3>
+		<h3 id="showme">For each person found, show me...</h3>
 		<?php
 		$show_fields = array_get($params, 'show_fields', Array());
 		?>
@@ -545,6 +577,7 @@ class Person_Query extends DB_Object
 
 					$options['all_members'] = 'Names of all their family members';
 					$options['adult_members'] = 'Names of their adult family members';
+					$options['familymember_group_members'] = 'Names of family member in the specified group';
 					if ($GLOBALS['system']->featureEnabled('PHOTOS')) {
 						$options['photo'] = 'Photo';
 					}
@@ -715,6 +748,70 @@ class Person_Query extends DB_Object
 
 	}
 
+
+	private function _printDateRangeBoundaryChooser($fieldname, $value)
+	{
+		static $counter = 0;
+		$counter++;
+		
+		// NOTE: we just put the raw value as the value of the option element,
+		// and the javascript takes it from there - setting the visible label and populating all the inputs within the dropdown.
+		$textValue = '(Choose date)'; // Will be updated by JS if there is an existing value.
+		$exactDate = date('Y-m-d');
+		?>
+		<span class="dropdown date-range-picker" id="<?php echo $fieldname; ?>-picker">
+			<select name="<?php echo $fieldname; ?>" class="dropdown-toggle" data-toggle="dropdown">
+				<option value="<?php echo ents($value); ?>"><?php echo $textValue; ?></option>
+			</select>
+			<div class="dropdown-menu">
+			<table>
+				<tr>
+					<td>
+						<label class="radio nowrap">
+							<input type="radio" name="drp_<?php echo $counter; ?>_val-type" value="any">
+							<strong>any date</strong>
+						</label>
+					</td>
+					<td>(open ended)</td>
+				</tr>
+				<tr>
+					<td>
+						<label class="radio nowrap">
+						<input type="radio" name="drp_<?php echo $counter; ?>_val-type" value="exact">
+						<strong>exact date</strong>
+						</label>
+					</td>
+					<td><?php print_widget('drp_exact', Array('type'=>'date'), $exactDate); ?></td>
+				</tr>
+				<tr>
+					<td>
+						<label class="radio nowrap">
+							<input type="radio" name="drp_<?php echo $counter; ?>_val-type" value="relative">											
+							<strong>relative date</strong>
+						</label>
+					</td>
+					<td class="relative">
+						<input type="number" name="drp_relative_y"> years, <input  style="width: 4.5ex !important"  name="drp_relative_m" type="number"> months and <input name="drp_relative_d" type="number"> days 
+						<br />
+						<?php print_widget('drp_relative_direction',
+											Array(
+												'type'=>'select',
+												'options' => Array('-'=>'before', '+'=>'after')
+											),
+											null
+							);
+						?>
+						the report date
+					</td>
+				</tr>
+				</table>
+				<button type="button" class="btn cancel">Cancel</button>
+				<button type="button" class="btn btn-primary save">Save</button>																							
+			</div>
+		</span>	
+		<?php
+	}
+
 	function processForm($prefix='', $fields=NULL)
 	{
 		switch ($_POST['save_option']) {
@@ -735,7 +832,7 @@ class Person_Query extends DB_Object
 				break;
 			case 'replace':
 				if (($this->getValue('owner') === NULL) && !$GLOBALS['user_system']->havePerm(PERM_MANAGEREPORTS)) {
-					trigger_error("You do not have permission to overwrite saved reports", E_USER_ERROR); exit;
+					throw new \RuntimeException("You do not have permission to overwrite saved reports"); exit;
 				}
 				$this->processFieldInterface('name');
 				if ($GLOBALS['user_system']->havePerm(PERM_SYSADMIN)) {
@@ -775,11 +872,8 @@ class Person_Query extends DB_Object
 					case 'date':
 						$params['custom_fields'][$fieldid] = Array(
 							'criteria' => $_REQUEST['params_custom_field_'.$fieldid.'_criteria'],
-							'periodtype' => $_REQUEST['params_custom_field_'.$fieldid.'_periodtype'],
-							'periodlength' => $_REQUEST['params_custom_field_'.$fieldid.'_periodlength'],
-							'periodanchor' => $_REQUEST['params_custom_field_'.$fieldid.'_periodanchor'],
-							'from' => process_widget('params_custom_field_'.$fieldid.'_from', Array('type' => 'date')),
-							'to' => process_widget('params_custom_field_'.$fieldid.'_to', Array('type' => 'date')),
+							'from' => $_REQUEST['params_custom_field_'.$fieldid.'_from'],
+							'to' => $_REQUEST['params_custom_field_'.$fieldid.'_to'],
 						);
 						break;
 					case 'select':
@@ -814,6 +908,16 @@ class Person_Query extends DB_Object
 			$params['exclude_group_membership_status'] = Array();
 		}
 
+        // FAMILY MEMBER GROUP RULES
+		$params['include_familymember_groups'] = array_remove_empties(array_get($_POST, 'include_familymember_groupids', Array()));
+		if (!empty($_REQUEST['enable_familymember_group_membership_status'])) {
+			$params['familymember_group_membership_status'] = array_get($_POST, 'familymember_group_membership_status');
+		} else {
+			$params['familymember_group_membership_status'] = Array();
+		}
+		$params['familymember_group_join_date_from'] = empty($_POST['enable_familymember_group_join_date']) ? NULL : process_widget('familymember_group_join_date_from', Array('type' => 'date'));
+		$params['familymember_group_join_date_to'] = empty($_POST['enable_familymember_group_join_date']) ? NULL : process_widget('familymember_group_join_date_to', Array('type' => 'date'));
+        
 
 		// NOTE RULES
 		$params['note_phrase'] = array_get($_POST, 'note_phrase');
@@ -854,6 +958,7 @@ class Person_Query extends DB_Object
 		$res = Array();
 		switch ($this->_field_details[$field]['type']) {
 			case 'datetime':
+				// todo: add fancy date range support here
 				$res['from'] = process_widget('params_'.str_replace('.', '_', $field).'_from', Array('type' => 'date'));
 				$res['to'] = process_widget('params_'.str_replace('.', '_', $field).'_to', Array('type' => 'date'));
 				break;
@@ -1018,29 +1123,44 @@ class Person_Query extends DB_Object
 							break;
 
 						case 'exact':
+						case 'not':
 						case 'anniversary':
 
-							if (array_get($values, 'periodtype') == 'relative') {
-								$length = $values['periodlength'];
-								if (!preg_match('/^[0-9]+$/', $length)) $length = 0;
-								$offsets = Array(
-									'before' => Array(-$length-1, -1),
-									'ending' => Array(-$length, 0),
-									'starting' => Array(0, $length),
-									'after' => Array(1, $length+1)
-								);
-								list($so, $eo) = $offsets[$values['periodanchor']];
-								if ($so > 0) $so = "+$so";
-								if ($eo > 0) $eo = "+$eo";
-								$from = date('Y-m-d', strtotime("{$so} days"));
-								$to = date('Y-m-d', strtotime("{$eo} days"));
-							} else {
-								$from = $values['from'];
-								$to = $values['to'];
+							$from = $to = NULL;
+							foreach (Array('from','to') as $k) {
+								$v = $values[$k];
+								$matches = Array();
+								if ($v == '*') {
+									$$k = NULL;
+								} else if (preg_match(("/([-+])(\d+)y(\d+)m(\d+)d/"), $v, $matches)) {
+									// relative date - convert it to an absolute now.
+									$sym=$matches[1]; // + or -
+									$$k = date('Y-m-d', strtotime($sym.($matches[2] ?? 0).' years '.$sym.($matches[3] ?? 0).' months '.$sym.($matches[4] ?? 0).' days'));
+								} else {
+									// absolute date
+									$$k = $v;
+								}
+								//bam("$k date $v = ".$$k);
 							}
-							$betweenExp = 'BETWEEN '.$db->quote($from).' AND '.$db->quote($to);
-							$valExp = 'pd'.$fieldid.'.value_date';
+
+						    $valExp = 'pd'.$fieldid.'.value_date';
+						    if ($from && $to) {
+								$betweenExp = 'BETWEEN '.$db->quote($from).' AND '.$db->quote($to);
+							} elseif ($from) {
+								$betweenExp = '>= '.$db->quote($from);
+							} elseif ($to) {
+								$betweenExp = '<= '.$db->quote($to);
+							} else {
+								// from unlimited to unlimited
+								$betweenExp = ' IS NOT NULL';
+
+							}
 							$w = Array();
+							if ($values['criteria'] == 'not') {
+								// date is either unset or not in the specified range
+								$w[] = "$valExp IS NULL";
+								$betweenExp = 'NOT '.$betweenExp;
+							}
 							$w[] = "$valExp NOT LIKE '-%' AND $valExp $betweenExp";
 							if ($values['criteria'] == 'anniversary') {
 								$qFromYear = $db->quote(substr($from, 0, 4));
@@ -1076,14 +1196,25 @@ class Person_Query extends DB_Object
 								// No options were picked for a select list custom field. Same as 'empty' ('not filled in')
 								$customFieldWheres[] = '(pd'.$fieldid.'.value_optionid IS NULL AND pd'.$fieldid.'.value_text IS NULL)';
 							}
-								break;
-							case 'any':
+							break;
+						case 'not':
+							if ($values['val']) {
+								$ids = implode(',', array_map(Array($db, 'quote'), $values['val']));
+								$xrule = '(pd'.$fieldid.'.value_optionid NOT IN ('.$ids.'))';
+								$customFieldWheres[] = $xrule;
+							} else {
+								// No options were picked for a select list custom field. Same as 'filled in with any value'
 								$customFieldWheres[] = '(pd'.$fieldid.'.value_optionid IS NOT NULL OR pd'.$fieldid.'.value_text IS NOT NULL)';
-								break;
-							case 'empty':
-								$customFieldWheres[] = '(pd'.$fieldid.'.value_optionid IS NULL AND pd'.$fieldid.'.value_text IS NULL)';
-								break;
-						}
+							}
+							break;
+
+						case 'any':
+							$customFieldWheres[] = '(pd'.$fieldid.'.value_optionid IS NOT NULL OR pd'.$fieldid.'.value_text IS NOT NULL)';
+							break;
+						case 'empty':
+							$customFieldWheres[] = '(pd'.$fieldid.'.value_optionid IS NULL AND pd'.$fieldid.'.value_text IS NULL)';
+							break;
+					}
 					break;
 
 				case 'text':
@@ -1091,6 +1222,9 @@ class Person_Query extends DB_Object
 					switch (array_get($values, 'criteria', 'equals')) {
 						case 'equal':
 							$customFieldWheres[] = '(pd'.$fieldid.'.value_text = '.$db->quote($values['val']).')';
+							break;
+						case 'not-equal':
+							$customFieldWheres[] = '(pd'.$fieldid.'.value_text <> '.$db->quote($values['val']).')';
 							break;
 						case 'any':
 							$customFieldWheres[] = '(pd'.$fieldid.'.value_text IS NOT NULL)';
@@ -1121,6 +1255,32 @@ class Person_Query extends DB_Object
 								JOIN person_group pg ON pgm.groupid = pg.id
 								WHERE ('.$include_groupids_clause.')';
 			$query['where'][] = 'p.id IN ('.$group_members_sql.')';
+		}
+        
+		if (!empty($params['include_familymember_groups'])) {
+            // "have a family member in one or more of these groups". E.g. family members (e.g. parents) of Youth Group members. #1104
+
+            // Logic identical to 'include_groups' above
+			$include_familymember_groupids_clause = $this->_getGroupAndCategoryRestrictionSQL(
+												$params['include_familymember_groups'],
+												array_get($params, 'familymember_group_join_date_from'),
+												array_get($params, 'familymember_group_join_date_to'),
+												array_get($params, 'familymember_group_membership_status'));
+
+            // subquery returning <personid, familymember_name> for every familymember in the <include_familymember_groups> groups.
+            // E.g. if little Jimmy (id 3) in Youth Group has parents with ids 1 and 2, this returns (1,"Jimmy"),(2,"Jimmy").
+            // Note, Jimmy himself is excluded, i.e. we treat "being the family member in the group" (Jimmy) as different to "having a family member in the group" (his parents), and assume we usually want the latter.
+			$familymember_group_members_sql = "SELECT p.id AS personid, concat(familyperson.first_name, ' ',familyperson.last_name) AS familymember_name
+								FROM person p
+								JOIN person familyperson USING (familyid)
+								JOIN person_group_membership pgm ON pgm.personid = familyperson.id
+								JOIN person_group pg ON pgm.groupid = pg.id
+								WHERE 
+								p.id <> familyperson.id
+								AND (".$include_familymember_groupids_clause.')';
+
+			$query['from'] .= ' JOIN ('.$familymember_group_members_sql.') familymember_in_required_group ON (familymember_in_required_group.personid = p.id)';
+//			$query['where'][] = 'familymember_in_required_group IN ('.$familymember_group_members_sql.')';
 		}
 
 		if (!empty($params['exclude_groups'])) {
@@ -1157,19 +1317,20 @@ class Person_Query extends DB_Object
 			$operator = ($params['attendance_operator'] == '>') ? '>' : '<'; // nb whitelist because it will be used in the query directly
 			$query['where'][] = '(SELECT SUM(present)/COUNT(*)*100
 									FROM attendance_record
-									WHERE date >= '.$GLOBALS['db']->quote($min_date).'
+									WHERE date > '.$GLOBALS['db']->quote($min_date).'
 									AND groupid = '.(int)$groupid.'
 									AND personid = p.id) '.$operator.' '.(int)$params['attendance_percent'];
 		}
 
 		// GROUPING
 		$grouping_order = '';
-		$grouping_field = '';
-		if (empty($params['group_by'])) {
+		$grouping_field = ''; // this will be the first SELECT col and used for grouping in PHP rendering; not actually used in SQL GROUP_BY
+		if (!$this->hasGroupingField($params)) {
 			$grouping_field = '';
 		} else if ($params['group_by'] == 'groupid') {
 			if (!empty($params['include_groups'])) {
-				$grouping_field = 'CONCAT(pg.name, '.$db->quote(' (#').', pg.id, '.$db->quote(')').'), ';
+				// Construct a markdown-style link to the group: [group name](URL)
+				$grouping_field = 'CONCAT("[", pg.name, "](?view=groups&groupid=", pg.id, ")"), ';
 				$query['from'] .= ' JOIN person_group_membership pgm ON p.id = pgm.personid
 									JOIN person_group pg ON pg.id = pgm.groupid
 									';
@@ -1296,6 +1457,9 @@ class Person_Query extends DB_Object
 										) all_members ON all_members.familyid = p.familyid
 										   ';
 						$query['select'][] = 'all_members.names as `All Family Members`';
+						break;
+					case 'familymember_group_members':
+						$query['select'][] = 'GROUP_CONCAT(DISTINCT familymember_in_required_group.familymember_name SEPARATOR ", ")  as `Family Members In Group`';
 						break;
 					case 'adult_members':
 						/*
@@ -1436,7 +1600,7 @@ class Person_Query extends DB_Object
 			if ($params['sort_by'] == 'f.family_name') {
 				// Stop members of identically-named families from being intermingled
 				// and make sure kids follow adults even if their last names are earlier
-				$query['order_by'] .= ', f.id,  absort.`rank`';
+				$query['order_by'] .= ', f.id,  absort.`rank`, IF (absort.is_adult, gender, 1) DESC';
 			}
 
 			/*
@@ -1503,14 +1667,14 @@ class Person_Query extends DB_Object
 		}
 
 		$data = array();
-		$grouping_field = $params['group_by'];
+
 		if (!empty($_REQUEST['debug'])) {
 			bam($params);
 			bam($sql);
 		}
 
 
-		if (empty($grouping_field)) {
+		if (!$this->hasGroupingField($params)) {
 			$res = $db->queryAll($sql, null, null, true, true);
 			if (array_get($_REQUEST, 'debug') > 1) bam($res);
 			if ($format == 'array') {
@@ -1629,7 +1793,7 @@ class Person_Query extends DB_Object
 			}
 			if ($groupingname) $hr[] = 'GROUPING';
 
-			fputcsv($fp, $hr);
+			fputcsv($fp, $hr, ",", '"', "");
 			$headerprinted = TRUE;
 		}
 		foreach ($x as $row) {
@@ -1651,7 +1815,7 @@ class Person_Query extends DB_Object
 				}
 			}
 			if ($groupingname) $r[] = str_replace('"', '""', $groupingname);
-			fputcsv($fp, $r);
+			fputcsv($fp, $r, ",", '"', "");
 		}
 		fclose($fp);
 	}
@@ -1735,7 +1899,12 @@ class Person_Query extends DB_Object
 	function _printResultSetHtml($x, $heading)
 	{
 		if ($heading) {
-			echo '<h3>'.$heading.'</h3>';
+			if (preg_match("/\[([^]]+)\]\((\?view=[^)]+)\)/", $heading, $matches)) {
+				// decode the markdown-style link
+				echo '<h3><a href="'.ents($matches[2]).'">'.ents($matches[1]).'</a></h3>';
+			} else {
+				echo '<h3>'.ents($heading).'</h3>';
+			}
 		}
 		if (empty($x)) {
 			?>
@@ -1817,7 +1986,10 @@ class Person_Query extends DB_Object
 								break;
 							case 'checkbox':
 								?>
-								<input name="personid[]" type="checkbox" value="<?php echo $row[$label]; ?>" class="no-print" />
+								<input 
+									name="personid[]" type="checkbox" value="<?php echo $row[$label]; ?>" class="no-print" 
+									<?php if (!empty($_REQUEST['bulk_action'])) echo 'checked="checked"'; ?>
+								/>
 								<?php
 								break;
 							case 'photo':
@@ -1898,11 +2070,11 @@ class Person_Query extends DB_Object
 		if (!($this->getValue('owner'))
 			&& (!$GLOBALS['user_system']->havePerm(PERM_MANAGEREPORTS))
 		) {
-			if ($throwErrors) trigger_error('You do not have permission to save shared reports', E_USER_ERROR);
+			if ($throwErrors) throw new \RuntimeException('You do not have permission to save shared reports');
 			return FALSE;
 		} else if (($this->getValue('owner')) && ($this->getValue('owner') != $GLOBALS['user_system']->getCurrentUser('id'))
 		) {
-			if ($throwErrors) trigger_error('Cannot save report that belongs to another user!', E_USER_ERROR);
+			if ($throwErrors) throw new \RuntimeException('Cannot save report that belongs to another user!');
 			return FALSE;
 		} else {
 			return TRUE;
@@ -1913,6 +2085,7 @@ class Person_Query extends DB_Object
 	function save()
 	{
 		if ($this->id == 'TEMP') {
+			//bam("Saving to session"); exit;
 			$_SESSION['saved_query'] = serialize($this);
 			return TRUE;
 		} else if (!$this->canSave(TRUE)) {
@@ -1946,11 +2119,23 @@ class Person_Query extends DB_Object
 	function _getColClasses($heading)
 	{
 		$class_list = Array();
-		if (in_array($heading, Array('edit_link', 'view_link', 'note_link', 'checkbox'))) {
-			$class_list[] = 'no-print narrow';
-		}
-		if ($heading == 'checkbox') {
-			$class_list[] = 'selector narrow';
+		switch ($heading) {
+			case 'checkbox':
+				$class_list[] = 'selector';
+				// fallthrough
+			case 'edit_link':
+			case 'view_link':
+			case 'note_link':
+				$class_list[] = 'no-print';
+				$class_list[] = 'narrow';
+				break;
+			case 'p.age_bracketid':
+			case 'p.congregationid':
+			case 'p.status':
+			case 'p.first_name':
+			case 'p.last_name':
+			case 'f.family_name':
+				$class_list[] = 'nowrap';
 		}
 		$classes = empty($class_list) ? '' : ' class="'.implode(' ', $class_list).'"';
 		return $classes;
@@ -2013,7 +2198,59 @@ class Person_Query extends DB_Object
 		}
 		if (!isset($params['rules'])) $params['rules'] = Array();
 
+		// Convert the old 'periodtype=relative/fixed' to new format.
+		if (!empty($params['custom_fields'])) {
+			foreach ($params['custom_fields'] as $k => &$rule) {
+				if (array_get($rule, 'periodtype') == 'relative') {
+					$days = $rule['periodlength'];
+					$months = 0;
+					$years = floor($days / 365); // never mind leap years
+					$days = $days % 365;
+					switch ($rule['periodanchor']) {
+						case 'ending':
+							$rule['to'] = '-0y0m0d';
+							$rule['from'] = '-'.$years.'y0m'.$days.'d';
+							break;
+						case 'before':
+							$rule['to'] = '-0y0m1d';
+							$rule['from'] = '-'.$years.'y0m'.($days+1).'d';
+							break;
+						case 'starting':
+							$rule['from'] = '+0y0m0d';
+							$rule['to'] = '+'.$years.'y0m'.($days).'d';
+							break;
+						case 'after':
+							$rule['from'] = '+0y0m1d';
+							$rule['to'] = '+'.$years.'y0m'.($days+1).'d';
+							break;
+					}
+				} else if (array_get($rule, 'periodtype') == 'fixed') {
+					// make open-ended values explicit.
+					if (empty($rule['from'])) $rule['from'] = '*';
+					if (empty($rule['from'])) $rule['to'] = '*';
+				}
+
+				unset($rule['periodtype']); // Now captured with special values for 'from' and 'to'.
+				unset($rule['periodlength']); 
+				unset($rule['periodanchor']); 
+			}
+		}
+
 		return $params;
 	}
+
+	/** Whether the person query has a *valid* group-by clause, i.e. if it's grouping by a custom field, check that the cf exists. */
+	private function hasGroupingField(array $params): bool
+	{
+		$grouping_field = $params['group_by'];
+		if (empty($grouping_field)) return false;
+		if ($grouping_field) {
+			if (0 === strpos($grouping_field, 'custom-')) {
+				$gb_bits = explode('-', $params['group_by']);
+				$field = $GLOBALS['system']->getDBObject('custom_field', end($gb_bits));
+				if (empty($field)) return false;
+			}
+		}
+		return true;
+	}
 }
-?>

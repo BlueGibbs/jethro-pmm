@@ -65,6 +65,17 @@ class Attendance_Record_Set
 		return $obj->releaseLock('att-'.$this->date);
 	}
 
+	public function getLockHolder()
+	{
+		$obj = $this->_getCohortObject();
+		if (!$obj) {
+			trigger_error("Could not get cohort object for lock");
+			return FALSE;
+		}
+		return $obj->getLockHolder('att-'.$this->date);
+
+	}
+
 	function create()
 	{
 	}
@@ -194,20 +205,22 @@ class Attendance_Record_Set
 
 	function delete()
 	{
-		$db =& $GLOBALS['db'];
-		$sql = 'DELETE ar
+		// If group/congregation filters caused no persons to have attendance marked for this congregation, do nothing. #1241
+		if ($this->_persons) {
+			$db =& $GLOBALS['db'];
+			$sql = 'DELETE ar
 				FROM attendance_record ar
 				JOIN person p ON ar.personid = p.id
-				WHERE date = '.$db->quote($this->date).'
-					AND (ar.groupid = '.$db->quote((int)$this->groupid).')';
-		if ($this->congregationid) {
-			$sql .= '
-					AND (congregationid = '.$db->quote($this->congregationid).')
+				WHERE date = ' . $db->quote($this->date) . '
+					AND (ar.groupid = ' . $db->quote((int)$this->groupid) . ')';
+			if ($this->congregationid) {
+				$sql .= '
+					AND (congregationid = ' . $db->quote($this->congregationid) . ')
 					';
+			}
+			$sql .= '  AND personid IN (' . implode(',', array_map(array($db, 'quote'), array_keys($this->_persons))) . ')';
+			$res = $db->query($sql);
 		}
-		$sql .= '  AND personid IN ('.implode(',', array_map(Array($db, 'quote'), array_keys($this->_persons))).')';
-
-		$res = $db->query($sql);
 	}
 
 
@@ -777,7 +790,7 @@ class Attendance_Record_Set
 			$congregations = $GLOBALS['system']->getDBObjectData('congregation', Array('!attendance_recording_days' => 0), 'OR', 'meeting_time');
 			$groups = $GLOBALS['system']->getDBObjectData('person_group', Array('!attendance_recording_days' => 0, 'is_archived' => 0), 'AND', 'category, name');
 			// need to preserve category too
-			uasort($groups, function($x,$y) {$r = strnatcmp($x["category"], $y["category"]); if ($r == 0) $r = strnatcmp($x["name"], $y["name"]); return $r;}); // to ensure natural sorting
+			uasort($groups, function($x,$y) {$r = strnatcmp($x["category"] ?? '', $y["category"] ?? ''); if ($r == 0) $r = strnatcmp($x["name"], $y["name"]); return $r;}); // to ensure natural sorting
 		}
 		$lastCategory = -1;
 		?>
@@ -910,6 +923,7 @@ class Attendance_Record_Set
 		// This set is also in the setting table - ATTENDANCE_ORDER_DEFAULT
 		return Array(
 			'status' => 'Status, then family name',
+			'status_last' => 'Status, then last name',
 			'family_name' => 'Family name, then age bracket',
 			'last_name'  => 'Last name',
 			'first_name' => 'First name',
@@ -925,7 +939,8 @@ class Attendance_Record_Set
 	public static function getOrderSQL($order=NULL, $status_table='ps')
 	{
 		$order_options = Array(
-			'status' => $status_table.'.`rank` ASC, family_name ASC, familyid, ab.`rank` ASC, gender DESC',
+			'status' => $status_table.'.`rank` ASC, family_name ASC, familyid, ab.`rank` ASC, IF (ab.is_adult, gender, 1) DESC',
+			'status_last' => $status_table.'.`rank` ASC, last_name ASC, familyid, ab.`rank` ASC, IF (ab.is_adult, gender, 1) DESC',
 			'family_name' => 'family_name ASC, familyid, ab.`rank` ASC',
 			'last_name'  => 'last_name ASC, first_name ASC, familyid',
 			'first_name' => 'first_name ASC, last_name ASC, familyid',

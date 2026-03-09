@@ -8,13 +8,31 @@ That said, I really, really, *really* want a full API and potetially the capacit
 
 Jethro Pastoral Ministry Manager is a web-based tool which helps churches keep track of people, families, groups, attendance, pastoral tasks, church services, rosters and documents.  Jethro doesn't force you to work in a particular way but gives you flexible, lightweight tools to support your own style of ministry.  
 
-The Jethro software is free and open source (GPL) and runs on a standard [LAMP](http://en.wikipedia.org/wiki/LAMP_%28software_bundle%29) web server.  Jethro's real advantages come to the fore when it's running on a proper web server, but it can also be run on a single PC using [XAMPP](XAMPP).
+The Jethro software is free and open source (GPL) and runs on a standard [LAMP](https://en.wikipedia.org/wiki/LAMP_%28software_bundle%29) web server.  Jethro's real advantages come to the fore when it's running on a proper web server, but it can also be run on a single PC using [XAMPP](XAMPP).
 
-Jethro PMM is the software that powers online services such as [Easy Jethro](http://easyjethro.com.au) who also offer a [demo system](http://easyjethro.com.au/demo/).
+Jethro PMM is the software that powers online services such as [Easy Jethro](https://easyjethro.com.au) who also offer a [demo system](https://easyjethro.com.au/demo/).
 
 # Download and install
 
-Start with the official version [Jethro-PMM](https://github.com/tbar0970/jethro-pmm). The versions here are for experimentation and play. Please don't try and deploy my version in production. Seriously, just don't. I'd love to help, but I don't really have the time. I'm just scratching my itch... but hopefully it will eventually be able to help someone else.
+Start with the official version [Jethro-PMM](https://github.com/tbar0970/jethro-pmm). The versions here are for experimentation and play. Please don't try and deploy my version in production. Seriously, just don't. I'd love to help, but I don't really have the time. I'm just scratching my itch... Maybe one day some of this might get added upstream.
+
+System requirements are:
+* Some kind of web server (apache/ngnix etc)
+* MySQL 8.0 or above
+    * with [ONLY_FULL_GROUP_BY](https://dev.mysql.com/doc/refman/8.4/en/sql-mode.html#sqlmode_only_full_group_by) disabled
+* PHP 8.1 or above
+    * with [gettext extension](https://www.php.net/manual/en/book.gettext.php) enabled
+    * with [zip extension](https://www.php.net/manual/en/book.zip.php) enabled
+    * with [xmlwriter extension](https://www.php.net/manual/en/book.xmlwriter.php) enabled, to create DOCX files
+    * [GD library](https://www.php.net/manual/en/book.image.php) recommended, to manage the size of uploaded photos
+    * with [curl extension](https://www.php.net/manual/en/book.curl.php) enabled, if you intend to use the Mailchimp integration
+    * with [exif extension](https://www.php.net/manual/en/book.exif.php) enabled, if you would like to automatically rotate images
+
+The steps to install are:
+1. Unzip the files into a web-accessible folder on your web server
+2. Create a mysql database and database user for your jethro system to use. If asked, choose utf8_unicode_ci as the character set and collation.
+3. Edit Jethro's configuration file conf.php and fill in the essential details (system name, URL, database details).  Further explanation can be found inside the file.
+4. Open the Jethro system URL in your web browser.  The Jethro installer will start automatically and will prompt you for details to create the initial user account.  When the installer completes, it will prompt you to log into the installed system.
 
 # Documentation
 
@@ -24,7 +42,7 @@ What does the programmer say about his documentation? No comment.
 
 If you're having trouble with this version of Jethro, go back and read the notes under download and install. If you need to ask, you should be using [Jethro-PMM](https://github.com/tbar0970/jethro-pmm).
 
-If you have an idea for a new feature, please [look if somebody has already requested it](https://github.com/tbar0970/jethro-pmm/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request) and if not, [open a new issue](https://github.com/tbar0970/jethro-pmm/issues/new).
+If you have an idea for a new feature, please [look if somebody has already requested it upstream](https://github.com/tbar0970/jethro-pmm/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request) and if not, [open a new issue upstream](https://github.com/tbar0970/jethro-pmm/issues/new).
 
 # Data Model
 The following is a high-level overview of the objects in Jethro and how they relate.
@@ -41,7 +59,7 @@ The following is a high-level overview of the objects in Jethro and how they rel
 * A **roster view** is a collection of roster roles which are viewed or edited together (eg all the roles for the evening service, or the 'preacher' roles for all services)
 * A **roster assignment** is when a person is assigned to a certain roster role for a particular service.
 
-An extensive list of Jethro's capabilities is available on the [Easy Jethro site](http://easyjethro.com.au/#features)
+An extensive list of Jethro's capabilities is available on the [Easy Jethro site](https://easyjethro.com.au/#features)
 
 # Naming
 
@@ -50,11 +68,11 @@ Jethro is designed to facilitate and encourage good team ministry, so its name c
 # Acknowledgements
 Jethro development has been sponsored or contributed to by several churches worldwide:
 * [Christ Church Inner West Anglican Community](http://cciw.org.au), Sydney, Australia (founding sponsor)
-* [Redlands Presbyterian Church](http://www.redlands.org.au/), Queensland, Australia (sponsor of service planning features)
-* [St Peter's Woolton](http://www.stpeters-woolton.org.uk), Liverpool, UK (sponsor of date field and photo features)
-* [Coast Evangelical Church](http://www.coastec.net.au)</a>, Forster, Australia (sponsor of group-membership statuses, attendance enhancements and more)
-* [St George North Anglican Church](http://snac.org.au)</a>, Sydney, Australia (contributor of vCard export)
+* [Redlands Presbyterian Church](https://redlands.org.au/), Queensland, Australia (sponsor of service planning features)
+* [St Peter's Woolton](https://www.stpeters-woolton.org.uk), Liverpool, UK (sponsor of date field and photo features)
+* [Coast Evangelical Church](https://www.coastec.net.au)</a>, Forster, Australia (sponsor of group-membership statuses, attendance enhancements and more)
+* [St George North Anglican Church](https://www.snac.org.au)</a>, Sydney, Australia (contributor of vCard export)
 * [Macquarie Anglican Church](http://www.macquarieanglican.org/)</a>, Sydney, Australia (contributor of note-search and SMS-family feature)
 * [Dalby Presbyterian Church](http://www.dpc.cc/)</a>, Queensland, Australia (sponsor of edit/delete note features and family photos)
-* [Professional Standards Unit](http://safeministry.org.au), Anglican Diocese of Sydney (sponsor of custom fields etc)
+* [Professional Standards Unit](https://safeministry.org.au), Anglican Diocese of Sydney (sponsor of custom fields etc)
 There are also several github contributors whose input is invaluable.

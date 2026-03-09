@@ -23,6 +23,10 @@ class JethroDB extends PDO
 	 */
 	public static function init($mode = '')
 	{
+		if (ifdef('DB_DSN')) {
+			$GLOBALS['db'] = new JethroDB(DB_DSN, DB_USERNAME, ifdef('DB_PASSWORD', ifdef('DB_PASSWORD', null)));
+			return;
+		}
 		$mode = strtoupper($mode);
 		if ($oldDsn = ifdef($mode . '_DSN')) {
 			// legacy config
@@ -79,7 +83,7 @@ class JethroDB extends PDO
 			$result = parent::__construct($dsn, $username, $password, $options);
 		} catch (PDOException $e) {
 			error_log((string)$e);
-			trigger_error('Could not connect to database - please check for mistakes in your Database configuration in conf.php, and check in MySQL that the database exists and the specified user has been granted access.', E_USER_ERROR);
+			throw new \RuntimeException('Could not connect to database - please check for mistakes in your Database configuration in conf.php, and check in MySQL that the database exists and the specified user has been granted access.');
 			exit();
 		}
 		return $result;
@@ -89,7 +93,7 @@ class JethroDB extends PDO
 	 * Quote and escape a value ready for use in SQL
 	 * @param string$string
 	 * @param mixed $paramtype
-	 * @return string
+	 * @return string|false
 	 */
 	public function quote($string, $paramtype = NULL)
 	{
@@ -264,7 +268,7 @@ class JethroDB extends PDO
 			$sql = 'SET @current_user_id = ' . $userid;
 			$result = parent::query($sql);
 		} catch (PDOException $e) {
-			trigger_error('Failed to set user id in database', E_USER_ERROR);
+			throw new \RuntimeException('Failed to set user id in database');
 		}
 	}
 

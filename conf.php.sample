@@ -21,12 +21,20 @@ define('DB_DATABASE', '');
 define('DB_USERNAME', '');
 define('DB_PASSWORD', '');
 
-// The URL jethro will be running at.  NB The final slash is important!!
-define('BASE_URL', 'http://example.com/jethro/');
+// Advanced: If your Jethro PHP-FPM runs as a dedicated OS user ('jethro'), you can enable socket-based authentication in MySQL:
+//     create user if not exists 'jethro'@'localhost' identified with unix_socket;
+// then use socket-based auth for Jethro by specifying DB_DSN instead of DB_PASSWORD as follows:
+// define('DB_USERNAME', 'jethro');
+// define('DB_DSN', "mysql:dbname=jethro");
+
+// The URL jethro will be running at. Only needs to be set if Jethro is running behind a proxy without
+// X-Forwarded-Proto + X-Forwarded-Host, or running scripts/task_reminder.php, where the base URL cannot be inferred
+// define('BASE_URL', 'https://example.com/jethro/');
 
 // Whether the system must be accessed by HTTPS.
 // If this is true, the BASE_URL above must begin with https://
-define('REQUIRE_HTTPS', FALSE);
+// No longer used - Jethro will run wherever it finds itself.
+// define('REQUIRE_HTTPS', FALSE);
 
 ///////////////////////////////////////////////////////////////////////////
 // OPTIONAL DATABASE SETTINGS -
@@ -55,6 +63,8 @@ define('DB_TYPE', 'mysql');
 // 2-FACTOR AUTH SETTINGS - These can also be configured in the web interface,
 // but you may want to define them here to lock them down.
 ///////////////////////////////////////////////////////////////////////////
+// Whether to 2FA. Setting to false always turned it off. Setting to true still requires other parameters defined for 2FA to be applied.
+define('2FA_ENABLED', true);
 
 // Allow users to tick a box to bypass 2-factor auth for this many days
 //define('2FA_TRUST_DAYS','30');
@@ -201,9 +211,6 @@ define('DB_TYPE', 'mysql');
 // Dev option: Don't actually sent 2FA messages, just log them
 // define('2FA_BLOCK_MESSAGES', TRUE); // Don't actually send SMS, just log the intention to send.
 
-// Order to list persons when recording/displaying attendance
-define('ATTENDANCE_LIST_ORDER', 'status ASC, family_name ASC, familyid, age_bracket ASC, gender DESC');
-
 // To use the "generate service documents" feature, add folder paths here.
 // They can be absolute paths, or relative within the documents root above.
 // Separate multiple entries with pipe (|).
@@ -211,9 +218,10 @@ define('ATTENDANCE_LIST_ORDER', 'status ASC, family_name ASC, familyid, age_brac
 //define('SERVICE_DOCS_TO_EXPAND_DIRS', 'Templates/To_Expand');
 
 // To make certain document folders visible within the members interface,
-// add their paths here.
+// add their paths here. Paths, if relative, are relative to DOCUMENTS_ROOT_PATH
 // Separate multiple entries with pipe (|).
-// define('MEMBER_FILES_DIRS', 'Member_Files');
+// Note: generally this should be left unset. Use the 'Member Visible Folders' config setting instead.
+// define('MEMBER_FILES_DIRS', '/path/to/member/files/');
 
 // How to contact the system administrator (probably the person editing this file)
 // either mailto:someone@domain.com or http://somedomain.com/info-page

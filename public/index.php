@@ -2,7 +2,7 @@
 /*
  * JETHRO PMM
  *
- * This file is part of Jethro PMM - http://jethro-pmm.sourceforge.net
+ * This file is part of Jethro PMM - https://github.com/tbar0970/jethro-pmm
  *
  * Jethro PMM is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Jethro PMM.  If not, see <http://www.gnu.org/licenses/>.
+ * along with Jethro PMM.  If not, see <https://www.gnu.org/licenses/>.
  *
  * index.php - first stop for every request
  *
@@ -50,7 +50,7 @@ $GLOBALS['system'] = System_Controller::get(THIS_DIR);
 if ((ifdef('PUBLIC_AREA_ENABLED', 0) == 0) && (array_get($_GET, 'call') != 'roster_ical')) {
 	header("HTTP/1.0 403 Forbidden");
 	?>
-	<p>The public area is not enabled for this Jethro System.  You may like to view the <a href="<?php echo BASE_URL; ?>members">members area<a>
+	<p>The public area is not enabled for this Jethro System.  You may like to view the <a href="<?php echo BASE_URL; ?>/members">members area<a>
 	<?php
 	exit;
 }

@@ -46,7 +46,7 @@ class View_Groups extends View
 					<td><?php $this->_group->printFieldValue('categoryid'); ?>&nbsp;&nbsp;</td>
 					<th class="narrow hidden-phone"><?php echo _('Record Attendance?');?></th>
 					<td class="hidden-phone"><?php $this->_group->printFieldValue('attendance_recording_days'); ?></td>
-					<td class="align-right">
+					<td class="group-details-links">
 						<?php
 						if ($GLOBALS['user_system']->havePerm(PERM_EDITATTENDANCE) && $this->_group->getValue('attendance_recording_days')) {
 							?>
@@ -83,9 +83,13 @@ class View_Groups extends View
 						<?php
 						if ($GLOBALS['user_system']->havePerm(PERM_EDITGROUP)) {
 							?>
-							<a data-method="post" class="double-confirm-title link-collapse" title="<?php echo _('Delete group');?>"
+							<a data-method="post" class="confirm-title link-collapse" title="<?php echo _('Archive this group');?>"
+							   href="?view=_edit_group&action=archive&groupid=<?php echo $this->_group->id; ?>">
+								<i class="icon-folder-close"></i><?php echo _('Archive');?>
+							</a> &nbsp;
+							<a data-method="post" class="double-confirm-title link-collapse" title="<?php echo _('Delete this group');?>"
 							   href="?view=_edit_group&action=delete&groupid=<?php echo $this->_group->id; ?>">
-								<i class="icon-trash"></i><?php echo _('Delete group');?>
+								<i class="icon-trash"></i><?php echo _('Delete');?>
 							</a>
 							<?php
 						}
@@ -142,7 +146,7 @@ class View_Groups extends View
 		$persons = $this->_group->getMembers($mParams);
 		list ($status_options, $default_status) = Person_Group::getMembershipStatusOptionsAndDefault();
 		?>
-		<h3 class="hidden-phone"><?php echo _('Group Members');?> (<?php echo count($persons); ?>)</h3>
+		<h3><?php echo _('Group Members');?> (<?php echo count($persons); ?>)</h3>
 
 		<?php
 		if (empty($_REQUEST['edit_statuses'])) {
@@ -173,6 +177,12 @@ class View_Groups extends View
 					<a href="<?php echo build_url(Array('view' => NULL, 'call' => 'email', 'groupid' => $this->_group->id, 'print_modal' => 1)); ?>" target="_append"><i class="icon-email">@</i><?php echo _('Email members');?></a>
 				</div>
 				<?php
+				if ($GLOBALS['user_system']->havePerm(PERM_RUNREPORT)) {
+					?>
+					<div><a href="<?php echo build_url(Array('view' => 'persons__reports', 'queryid' => 0, 'configure' => 1)); ?>#showme"><i class="icon-list-alt"></i><?php echo _('Create report');?></a></div>
+					<?php
+				}
+
 			}
 			if (!empty($persons) && $GLOBALS['user_system']->havePerm(PERM_EDITGROUP)) {
 				if (count($status_options) > 1) {
@@ -243,7 +253,7 @@ class View_Groups extends View
 					}
 					?>
 						<th>&nbsp;</th>
-						<th class="narrow selector form-inline"><input type="checkbox" class="select-all" title=<?php echo _('"Select all"')?> /></th>
+						<th class="narrow selector form-inline"><input type="checkbox" class="select-all" title="<?php echo _('Select all')?>" /></th>
 					</tr>
 
 				</thead>
@@ -322,4 +332,3 @@ class View_Groups extends View
 		Person_Group::printMembershipStatusChooser('membership_status['.(int)$personid.']', $value);
 	}
 }
-?>

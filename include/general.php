@@ -82,8 +82,9 @@ function bam($x)
 
 function format_datetime($d)
 {
+	if (empty($d)) return '';
 	if (!is_int($d)) {
-		if (0 === strpos($d, '0000-00-00')) return '';
+		if (str_starts_with($d, '0000-00-00')) return '';
 		$d = strtotime($d);
 	}
 	if ($d == -1) return '';
@@ -169,37 +170,6 @@ function redirect($view, $params=Array(), $hash='')
 	exit;
 }
 
-/**
- * If a session cookie HTTP header is to be sent, alter it to make sure it includes the right details
- * Specifically, this is to make sure we have SameSite=Lax even under PHP5.
- */
-function upgrade_session_cookie()
-{
-	$headers_list = headers_list();
-	$header_was_deleted = FALSE;
-	foreach ($headers_list as $i => $header) {
-		if (FALSE !== strpos($header, session_name())) {
-			// There is a session cookie header waiting to be sent. Remove it, and add a better one.
-			$path = parse_url(BASE_URL, PHP_URL_PATH);
-			$domain = parse_url(BASE_URL, PHP_URL_HOST);
-			header_remove('Set-Cookie');
-			unset($headers_list[$i]);
-			$header_was_deleted = TRUE;
-			header("Set-Cookie: ".session_name()."=".session_id()."; path=".$path."; HttpOnly; SameSite=Lax");
-			break;
-		}
-	}
-	if ($header_was_deleted) {
-		foreach ($headers_list as $header) {
-			if (FALSE !== strpos($header, 'Set-Cookie:')) {
-				// Since the call to header_remove above will have deleted ALL Set-Cookie headers, we will reinstate
-				// Any Set-Cookie headers that are not related to the Session ID.
-				header($header, false);
-			}
-		}
-	}
-}
-
 
 function add_message($msg, $class='success', $html=FALSE)
 {
@@ -278,8 +248,9 @@ function print_widget($name, $params, $value)
 				><?php echo ents($value); ?></textarea>
 				<?php
 			} else {
+				if ($params['type']=='email') $classes .= " valid-email";
 				$width_exp = empty($params['width']) ? '' : 'size="'.$params['width'].'"';
-				$regex_exp = empty($params['regex']) ? '' : 'regex="'.ents(trim($params['regex'], '/ ')).'"';
+				$regex_exp = empty($params['regex']) ? '' : 'regex="'.ents(trim($params['regex'], '/ ')).'"' . 'pattern="'.ents(trim($params['regex'], '/ ')).'"';
 				$placeholder_exp = empty($params['placeholder']) ? '' : 'placeholder="'.ents($params['placeholder']).'"';
 				$autocomplete_exp = isset($params['autocomplete']) ? 'autocomplete='.($params['autocomplete'] ? 'on' : 'new-password').'"' : '';
 				?>
@@ -291,7 +262,7 @@ function print_widget($name, $params, $value)
 			static $includedCK = false;
 			if (!$includedCK) {
 				?>
-				<script src="<?php echo BASE_URL.'resources/ckeditor/ckeditor.js'; ?>"></script>
+				<script src="<?php echo BASE_URL.'/resources/ckeditor/ckeditor.js'; ?>"></script>
 				<?php
 			}
 			$ckParams = 'disableNativeSpellChecker: false,
@@ -388,17 +359,15 @@ function print_widget($name, $params, $value)
 				$height = array_get($params, 'height', min(count($params['options']), 4));
 				if (count($params['options']) < 4) $height = 0;
 				if (substr($name, -2) != '[]') $name .= '[]';
-				$style = '';
-				if ($height > 0) $style = 'height: '.($height*1.7).'em';
 				$classes .= ' multi-select';
 				// the empty onclick below is to make labels work on iOS
-				// see http://stackoverflow.com/questions/5421659/html-label-command-doesnt-work-in-iphone-browser
+				// see https://stackoverflow.com/questions/5421659/html-label-command-doesnt-work-in-iphone-browser
 				?>
-				<div class="<?php echo $classes; ?>" style="<?php echo $style; ?>" tabindex="0" onclick="" <?php echo $attrs; ?> >
+				<div class="<?php echo $classes; ?>" tabindex="0" onclick="" <?php echo $attrs; ?> >
 					<?php
 					foreach ($params['options'] as $k => $v) {
 						$checked_exp = in_array("$k", $our_val, true) ? ' checked="checked"' : '';
-						$disabled_exp = (!empty($params['disabled_prefix']) && (strpos($k, $params['disabled_prefix']) === 0)) ? ' disabled="disabled" ' : '';
+						$disabled_exp = (!empty($params['disabled_prefix']) && str_starts_with($k, $params['disabled_prefix'])) ? ' disabled="disabled" ' : '';
 						?>
 						<label class="checkbox" title="<?php echo ents($v); ?>">
 							<input type="checkbox" name="<?php echo $name; ?>" value="<?php echo $k; ?>" <?php echo $checked_exp.$disabled_exp; ?>>
@@ -410,7 +379,7 @@ function print_widget($name, $params, $value)
 				</div>
 				<?php
 			} else {
-				// SOme JS needs to know this
+				// Some JS needs to know this
 				$attrs .= ' data-allow-empty='.(int)array_get($params, 'allow_empty');
 				?>
 				<select name="<?php echo $name; ?>" class="<?php echo $classes;?>" <?php echo $attrs; ?> >
@@ -434,7 +403,7 @@ function print_widget($name, $params, $value)
 					}
 					foreach (array_get($params, 'options', Array()) as $k => $v) {
 						$selected_exp = in_array("$k", $our_val, true) ? ' selected="selected"' : '';
-						$disabled_exp = (!empty($params['disabled_prefix']) && (strpos($k, $params['disabled_prefix']) === 0)) ? ' disabled="disabled" ' : '';
+						$disabled_exp = (!empty($params['disabled_prefix']) && str_starts_with($k, $params['disabled_prefix'])) ? ' disabled="disabled" ' : '';
 						?>
 						<option value="<?php echo $k; ?>"<?php echo $selected_exp.$disabled_exp; ?>><?php echo ents($v); ?></option>
 						<?php
@@ -552,7 +521,7 @@ function print_widget($name, $params, $value)
 			foreach ($params['options'] as $k => $v) {
 				$checked_exp = (($value & (int)$k) == $k) ? 'checked="checked"' : '';
 				// the empty onclick below is to make labels work on iOS
-				// see http://stackoverflow.com/questions/5421659/html-label-command-doesnt-work-in-iphone-browser
+				// see https://stackoverflow.com/questions/5421659/html-label-command-doesnt-work-in-iphone-browser
 				?>
 				<label class="checkbox" onclick="">
 					<input type="checkbox" name="<?php echo ents($name); ?>[]" value="<?php echo ents($k); ?>" <?php echo $checked_exp; ?>>
@@ -687,6 +656,15 @@ function process_widget($name, $params, $index=NULL, $preserveEmpties=FALSE)
 			if (isset($rawVal)) {
 				require_once 'htmLawed.php';
 				$value = htmLawed($rawVal, array('deny_attribute' => '* -href', 'safe'=>1));
+
+				while (true) {
+					// Trim whitespace and paragraphs with a space from end
+					$trimmedValue = preg_replace('/<p>&nbsp;<\/p>$/', '', rtrim($value));
+					if ($trimmedValue == $value) {
+						break;
+					}
+					$value = $trimmedValue;
+				}
 			}
 			break;
 		case 'reference':
@@ -753,6 +731,7 @@ function format_value($value, $params)
 	}
 }
 
+// Build a root-relative URL with the given params.
 function build_url($params)
 {
 	if (array_get($params, '*', 1) == NULL) {
@@ -767,14 +746,76 @@ function build_url($params)
 			$vars[$i] = $v;
 		}
 	}
-	$protocol = (REQUIRE_HTTPS || !empty($_REQUEST['HTTPS'])) ? 'https://' : 'http://';
-	$ubits = parse_url(BASE_URL);
-	$path = (0 === strpos($_SERVER['PHP_SELF'], $ubits['path'])) ? $_SERVER['PHP_SELF'] : $ubits['path'];
-	if (!empty($ubits['port'])) {
-		return $protocol.str_replace('index.php', '', $ubits['host'].':'.$ubits['port'].$path).'?'.http_build_query($vars);
+
+	if ($queryparams = http_build_query($vars)) {
+		return get_url_pathprefix().'?'.$queryparams;
 	} else {
-		return $protocol.str_replace('index.php', '', $ubits['host'].$path).'?'.http_build_query($vars);
+		return get_url_pathprefix();
 	}
+}
+
+/**
+ * * Get the relative 'base URL' path below which Jethro lives, e.g. '' or '/jethro'. No trailing slash. This is the default value for BASE_URL, and is used to link to root-relative resources. Unlike get_url_pathprefix, there is no '/members' or '/public' part - just the base.
+ *  - 'https://jethro.mychurch.org'   returns ''
+ *  - 'https://jethro.mychurch.org/'   returns ''
+ *  - 'https://jethro.mychurch.org//'   returns ''
+ *  - 'https://mychurch.org/jethro/'   returns '/jethro'
+ *  - 'https://mychurch.org/jethro/members/'   returns '/jethro'
+ *  - 'https://mychurch.org/jethro/public/'   returns '/jethro'
+ * @return string
+ */
+function get_relative_baseurl()
+{
+    // SCRIPT_NAME is the path part of the URL, e.g. /index.php or /jethro/index.php, or /jethro/members/index.php
+    $parts = explode('/', $_SERVER['SCRIPT_NAME']);
+    end($parts);  // Move internal pointer to the end (likely 'index.php').
+    $lastdir=prev($parts); // Get path segment before 'index.php'
+    if ($lastdir == 'members' or $lastdir == 'public') $lastdir=prev($parts); // Look one earlier than /members / /public
+    if (empty($lastdir)) return '';
+    else return '/'.$lastdir;
+    // Note that this cannot return '/', because its value becomes BASE_URL which gets prepended to '/resources/...' in many places.
+//    return rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+}
+
+/**
+ * Get the path segment of the current request URL, with a trailing slash - e.g. '/' or '/jethro/'. This includes the '/members/' or '/public/' part, if present in the requesting URL (unlike get_relative_baseurl). Used to construct form actions.
+ *  - 'https://jethro.mychurch.org/'    returns '/'
+ *  - 'https://jethro.mychurch.org//'    returns '/'
+ *  - 'https://jethro.mychurch.org/members'   returns '/members/'
+ *  - 'https://jethro.mychurch.org/public'   returns '/public/'
+ *  - 'https://mychurch.org/jethro/'    returns '/jethro/'
+ *  - 'https://mychurch.org/jethro/members/'   returns '/jethro/members/'
+ *  - 'https://mychurch.org/jethro/public/'   returns '/jethro/public/'
+ * @return string
+ */
+function get_url_pathprefix()
+{
+    $relbase = get_relative_baseurl(); // e.g. '' or '/jethro'
+    $subdir = dirname(substr($_SERVER['SCRIPT_NAME'], strlen($relbase))); // e.g. '/', '/members' or '/public'
+    return rtrim($relbase.$subdir, '/').'/'; // e.g. '/members/', '/public/', '/jethro/', '/jethro/members/', '/jethro/members/public/'
+}
+
+/**
+ * Infer Jethro's base URL from the request.
+ */
+function base_url()
+{
+    // Detect scheme
+    $https = (
+        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+        (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) ||
+        (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+    );
+    $scheme = $https ? 'https' : 'http';
+
+    // Detect host (with proxy awareness)
+    $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'];
+
+    // Detect base path (the directory your app runs from)
+    $scriptDir = get_relative_baseurl();
+
+    // Build base URL (no trailing slash if at root)
+    return $scheme . '://' . $host . ($scriptDir !== '' ? $scriptDir : '');
 }
 
 function speed_log($bam=FALSE)
@@ -909,7 +950,7 @@ function email_link_extras()
 
 /**
  * Get a string that's as random as possible
- * From http://stackoverflow.com/questions/1182584/secure-random-number-generation-in-php
+ * From https://stackoverflow.com/questions/1182584/secure-random-number-generation-in-php
  *
  * @param int $chars	Number of characters required
  * @param array $set	Optional array of valid chars. Defaults to a-zA-Z0-9
@@ -941,7 +982,7 @@ function generate_random_string($chars=16, $set=NULL)
 
 		// MS-Windows platform?
 		if (@class_exists('COM')) {
-			// http://msdn.microsoft.com/en-us/library/aa388176(VS.85).aspx
+			// https://msdn.microsoft.com/en-us/library/aa388176(VS.85).aspx
 			try {
 				$CAPI_Util = new COM('CAPICOM.Utilities.1');
 				$pr_bits .= $CAPI_Util->GetRandom($chars,0);
@@ -957,7 +998,7 @@ function generate_random_string($chars=16, $set=NULL)
 	}
 
 	if (empty($pr_bits)) {
-		trigger_error("Could not generate random string", E_USER_ERROR);
+		throw new \RuntimeException("Could not generate random string");
 	}
 
 	if (strlen($pr_bits) < $chars) {
@@ -987,7 +1028,7 @@ function jethro_password_hash($str)
 		}
 		$res = crypt($str, $salt);
 		if (strlen($res) < 4) {
-			trigger_error("Crypt function returned invalid result $res for salt $salt", E_USER_ERROR);
+			throw new \RuntimeException("Crypt function returned invalid result $res for salt $salt");
 		}
 		return $res;
 	}
@@ -1059,4 +1100,40 @@ function parse_size($size) {
   else {
     return round($size);
   }
+}
+
+function error_response(int $code, string $message): void {
+	http_response_code($code);
+	echo ents($message);
+	exit;
+}
+
+/** Return $path if it is an existing subdirectory of $base, or false otherwise.
+ * @param $base Directory we want to be relative to. May not contain '..'.
+ * @param $path Path to check. E.g. 'foo' returns 'foo', '/foo' returns 'foo'. '' returns false. '../' returns false.
+ * @return false|string
+ */
+function safe_subdirectory($base, $path) {
+    $base = rtrim(realpath($base), DIRECTORY_SEPARATOR);
+    if ($base === false) return false;
+    if ($path === '') return false;
+
+    // Build full path
+    $full = ($path[0] === DIRECTORY_SEPARATOR)
+            ? $base . $path
+            : $base . DIRECTORY_SEPARATOR . $path;
+
+    $realpath = realpath($full);
+    if ($realpath === false) return false;
+
+    // Ensure result is inside base
+    if (strncmp($realpath, $base . DIRECTORY_SEPARATOR, strlen($base) + 1) !== 0 &&
+            $realpath !== $base) {
+        return false;
+    }
+
+    // Return relative portion (false if same directory)
+    return $realpath === $base
+            ? false
+            : substr($realpath, strlen($base) + 1);
 }

@@ -84,14 +84,16 @@ class View_Attendance__Record extends View
 		} else if (!empty($_REQUEST['params_submitted'])) {
 			foreach ($this->_record_sets as $cohortid => $set) {
 				if (!$set->checkAllowedDate()) {
-					add_message(_('"Attendance for "').$set->getCohortName()._('" cannot be recorded on a "').date('l', strtotime($this->_attendance_date)), 'error');
+					add_message(_('Attendance for "').$set->getCohortName()._('" cannot be recorded on a ').date('l', strtotime($this->_attendance_date)), 'error');
 					unset($this->_record_sets[$cohortid]);
 					$this->_cohortids = array_diff($this->_cohortids, Array($cohortid));
 					continue;
 				}
 
 				if (!$set->acquireLock()) {
-					add_message(_('"Another user is currently recording attendance for "').$set->getCohortName()._('".  Please wait until they finish then try again."'), 'error');
+					$lockHolder = $set->getLockHolder();
+					$lockHolderStr = $lockHolder['first_name'] !== null ? "{$lockHolder['first_name']} {$lockHolder['last_name']} ({$lockHolder['userid']})" : "User {$lockHolder['userid']}";
+					add_message($lockHolderStr._(' is currently recording attendance for ').$set->getCohortName()._('.  Please wait until they finish then try again.'), 'error');
 					unset($this->_record_sets[$cohortid]);
 					$this->_cohortids = array_diff($this->_cohortids, Array($cohortid));
 				}
@@ -112,13 +114,21 @@ class View_Attendance__Record extends View
 					if (!$set->haveLock() && !$set->acquireLock()) {
 						add_message("Unfortunately your lock on '".$set->getCohortName()."' has expired and been acquired by another user.  Please wait until they finish and try again.", 'error');
 					} else {
-						if ($set->processForm($i)) {
-							$set->save();
-						}
+						$set->processForm($i);
+						$set->save();
+
 						if ((int)$set->congregationid) {
-							Headcount::save('congregation', $this->_attendance_date, $set->congregationid, $_REQUEST['headcount']['congregation'][$set->congregationid]);
+							// There will be no headcount for this congregation if no persons were in the congregation's set. #1241
+							if (isset($_REQUEST['headcount']['congregation'][$set->congregationid])) {
+								$congregation_headcount = $_REQUEST['headcount']['congregation'][$set->congregationid];
+								Headcount::save('congregation', $this->_attendance_date, $set->congregationid, $congregation_headcount);
+							}
 						} else {
-							Headcount::save('person_group', $this->_attendance_date, $set->groupid, $_REQUEST['headcount']['group'][$set->groupid]);
+							// There will be no headcount for this group if no persons were in the group's set. #1241
+							if (isset($_REQUEST['headcount']['group'][$set->groupid])) {
+								$group_headcount = $_REQUEST['headcount']['group'][$set->groupid];
+								Headcount::save('person_group', $this->_attendance_date, $set->groupid, $group_headcount);
+							}
 						}
 						$set->releaseLock();
 					}

@@ -12,9 +12,13 @@ You can adjust the format of the report, or the membership of the recipient grou
 With a bit of work this script could be modified to send multiple different reports.
 TODO - there may be issues with formatting if a report is grouped into multiple tables?
 ******************************************************************/
-//
+
+if ((php_sapi_name() !== 'cli') && !defined('STDIN')) {
+	echo "This script must be run from the command line";
+	exit;
+}
+
 //read the ini file
-//
 if (empty($_SERVER['argv'][1]) || !is_readable($_SERVER['argv'][1])) {
 	echo "You must specify an ini file as the first argument \n";
 	echo "Eg:  php email_report.php email_report_sample.ini \n";
@@ -28,7 +32,7 @@ $ini = parse_ini_file($_SERVER['argv'][1]);
 define('JETHRO_ROOT', dirname(dirname(__FILE__)));
 set_include_path(get_include_path().PATH_SEPARATOR.JETHRO_ROOT);
 if (!is_readable(JETHRO_ROOT.'/conf.php')) {
-	trigger_error('Jethro configuration file not found.  You need to copy conf.php.sample to conf.php and edit it before Jethro can run', E_USER_ERROR);
+	throw new \RuntimeException('Jethro configuration file not found.  You need to copy conf.php.sample to conf.php and edit it before Jethro can run');
 	exit(1);
 }
 require_once JETHRO_ROOT.'/conf.php';
@@ -87,7 +91,7 @@ $table_rows = explode(PHP_EOL, $csv_string);
 //covert each row into an array
 $table_array = array();
 foreach ($table_rows as $line) {
-    $table_array[] = str_getcsv($line);
+    $table_array[] = str_getcsv($line, ",", '"', "");
 }
     $rows = (count($table_array)-1);
     $columns = count($table_array[0]);

@@ -14,7 +14,10 @@ class View_Home extends View
 	{
 		if (ifdef('NEEDS_1086_CHECK')) {
 			if ($GLOBALS['user_system']->havePerm(PERM_SYSADMIN)) {
-				require_once 'views/view_0_fix_age_brackets.class.php';
+				if (PHP_VERSION_ID >= 70400) {
+					// This code requires php 7.4+ but isn't particularly essential, so let's not break on 7.2. Issue #1245
+					require_once 'views/view_0_fix_age_brackets.class.php';
+				}
 				$x = new View__Fix_Age_Brackets();
 				$x->printInvitation();
 			}
@@ -24,17 +27,13 @@ class View_Home extends View
 			Status_Upgrader::runHTML();
 		}
 
-		$num_cols = 1;
-		if ($GLOBALS['user_system']->havePerm(PERM_VIEWNOTE)) $num_cols++;
-		if ($GLOBALS['user_system']->havePerm(PERM_VIEWROSTER)) $num_cols++;
-
 		?>
-		<div class="homepage homepage-<?php echo $num_cols; ?>-col">
+		<div class="homepage">
 
 		<div class="homepage-box search-forms">
 			<h3>
 				<a class="pull-right hide-phone"
-				   href="javascript:if (sp = prompt('Search <?php echo SYSTEM_NAME; ?> for: ')) window.location='<?php echo BASE_URL; ?>?view=_mixed_search&search='+sp"
+				   href="javascript:if (sp = prompt('Search <?php echo SYSTEM_NAME; ?> for: ')) window.location='?view=_mixed_search&search='+sp"
 				   onclick="prompt('To create a search-jethro button in your browser, save the following code as a bookmark/favourite: ', this.href); return false"
 				>
 					<small class="hidden-phone"><i class="icon-bookmark"></i>Bookmark</small>
@@ -57,7 +56,7 @@ class View_Home extends View
 				<?php
 				if ($tasks) {
 					?>
-					<table class="table table-condensed table-striped table-hover clickable-rows" width="100%">
+					<table class="table table-condensed table-striped table-hover clickable-rows">
 						<thead>
 							<tr>
 								<th><?php echo _('For');?></th>
@@ -75,7 +74,7 @@ class View_Home extends View
 								$nameurl = '?view='.$view.'&'.$task['type'].'id='.$task[$task['type'].'id'];
 								?>
 								<tr>
-									<td class="narrow"><a href="<?php echo $nameurl; ?>"><i class="icon-<?php echo $icon; ?>"></i><?php echo ents($task['name']); ?></a></td>
+									<td class="narrow-gentle"><a href="<?php echo $nameurl; ?>"><i class="icon-<?php echo $icon; ?>"></i><?php echo ents($task['name']); ?></a></td>
 									<td><a href="<?php echo $url; ?>"><?php echo ents($task['subject']); ?></a></td>
 								</tr>
 								<?php
@@ -101,46 +100,73 @@ class View_Home extends View
 			<?php
 		}
 
-		if ($GLOBALS['user_system']->havePerm(PERM_VIEWROSTER)) {
+		if ($GLOBALS['user_system']->havePerm(PERM_VIEWSERVICE) || $GLOBALS['user_system']->havePerm(PERM_VIEWROSTER)) {
 			?>
-			<div class="homepage-box my-roster">
-				<h3>
+			<div class="homepage-box upcoming">
 				<?php
-				if (ifdef('ROSTER_FEEDS_ENABLED', 0)) {
-					?>
-					<a href="?view=_manage_ical" class="pull-right"><small><i class="icon-rss"></i><span class="hidden-phone">Subscribe</span></small></a>
-					<?php
+				if ($GLOBALS['user_system']->havePerm(PERM_VIEWSERVICE)) {
+					$cutoff = date('Y-m-d', strtotime('+7 days'));
+					$services = $GLOBALS['system']->getDBObjectData(
+									'service', 
+									Array('-date' => Array(date('Y-m-d'), $cutoff))
+									);
+					if ($services) {
+						?>
+						<h3>Upcoming services</h3>
+						<ul class="services">
+						<?php
+						$service = new Service();
+						foreach ($services as $sid => $sdata) {
+							$service->load($sid, $sdata);
+							$url = build_url(Array('view'=>'services', 'date'=>$sdata['date'], 'congregationid'=>$sdata['congregationid']));
+							echo '<li><a href="'.$url.'">'.ents($service->toString()).'</a></li>';
+						}
+						?>
+						</ul>
+						<?php
+					}
 				}
-				?>
-					Upcoming roster
-				</h3>
-				<?php
-				$GLOBALS['system']->includeDBClass('roster_role_assignment');
-				$rallocs = Roster_Role_Assignment::getUpcomingAssignments($GLOBALS['user_system']->getCurrentUser('id'));
-				if ($rallocs) {
-					foreach ($rallocs as $date => $allocs) {
-						 ?>
-						 <h5><?php echo date('j M', strtotime($date)); ?></h5>
-						 <?php
-						 foreach ($allocs as $alloc) {
-							  echo $alloc['cong'].' '.$alloc['title'].'<br />';
-						 }
+				if ($GLOBALS['user_system']->havePerm(PERM_VIEWROSTER)) {
+					?>
+					<h3>
+					<?php
+					if (ifdef('ROSTER_FEEDS_ENABLED', 0)) {
+						?>
+						<a href="?view=_manage_ical" class="pull-right"><small><i class="icon-rss"></i><span class="hidden-phone">Subscribe</span></small></a>
+						<?php
 					}
 					?>
-					<div class="pull-right"><a href="./?view=persons&personid=<?php echo $GLOBALS['user_system']->getCurrentUser('id'); ?>#rosters">See all</a></div>
+						Upcoming roster
+					</h3>
 					<?php
-				} else {
-					?>
-					<p><i>None</i></p>
-					<?php
+					$GLOBALS['system']->includeDBClass('roster_role_assignment');
+					$rallocs = Roster_Role_Assignment::getUpcomingAssignments($GLOBALS['user_system']->getCurrentUser('id'));
+					if ($rallocs) {
+						foreach ($rallocs as $date => $allocs) {
+							?>
+							<h5><?php echo date('j M', strtotime($date)); ?></h5>
+							<?php
+							foreach ($allocs as $alloc) {
+								echo $alloc['cong'].' '.$alloc['title'].'<br />';
+							}
+						}
+						?>
+						<div class="pull-right"><a href="./?view=persons&personid=<?php echo $GLOBALS['user_system']->getCurrentUser('id'); ?>#rosters">See all</a></div>
+						<?php
+					} else {
+						?>
+						<p><i>None</i></p>
+						<?php
+					}
 				}
 				?>
-			 </div>
+			</div>
 			<?php
 		}
 		?>
 		</div>
 		<?php
+
 		$reportVals = Array('all');
 		if ($GLOBALS['user_system']->havePerm(PERM_RUNREPORT)) {
 			$reportVals[] = 'auth';
@@ -150,7 +176,7 @@ class View_Home extends View
 		foreach ($frontpagereports as $reportid => $reportparams) {
 			$report = $GLOBALS['system']->getDBObject('person_query', $reportid);
 			?>
-			<div class="homepage homepage-1-col" style="clear:both;">
+			<div class="homepage-box">
 				<h3><?php echo $reportparams['name']; ?></h3>
 				<?php $report->printResults(); ?>
 			</div>

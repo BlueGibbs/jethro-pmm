@@ -3,6 +3,12 @@
  * This script can be used to send emails to people who have recently
  * been assigned a note.  It should be configured to run every 5 minutes by cron.
  */
+
+ if ((php_sapi_name() !== 'cli') && !defined('STDIN')) {
+	echo "This script must be run from the command line";
+	exit;
+}
+
 $VERBOSE = in_array('--verbose', $_SERVER['argv']);
 $DRYRUN = in_array('--dry-run', $_SERVER['argv']);
 $minutes = 5;
@@ -10,12 +16,13 @@ $minutes = 5;
 define('JETHRO_ROOT', dirname(dirname(__FILE__)));
 set_include_path(get_include_path().PATH_SEPARATOR.JETHRO_ROOT);
 if (!is_readable(JETHRO_ROOT.'/conf.php')) {
-	trigger_error('Jethro configuration file not found.  You need to copy conf.php.sample to conf.php and edit it before Jethro can run', E_USER_ERROR);
+	throw new \RuntimeException('Jethro configuration file not found.  You need to copy conf.php.sample to conf.php and edit it before Jethro can run');
 	exit();
 }
 require_once JETHRO_ROOT.'/conf.php';
 define('DB_MODE', 'PRIVATE');
 require_once JETHRO_ROOT.'/include/init.php';
+if (!BASE_URL) throw new \RuntimeException('Please define a non-blank BASE_URL in conf.php');
 
 if (ifdef('TASK_NOTIFICATION_ENABLED', FALSE) == FALSE) {
 	if ($VERBOSE) echo "Task notification is disabled in conf.php - exiting \n";

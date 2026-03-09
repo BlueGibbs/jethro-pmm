@@ -42,50 +42,98 @@ class View_services extends View
 						trigger_error("Your lock expired and your changes could not be saved");
 						return;
 					}
+				}
 
-					if (!empty($_REQUEST['copy_service_id'])) {
-						$fromService = new Service((int)$_REQUEST['copy_service_id']);
-						if (!$fromService) {
-							trigger_error("Service ".(int)$_REQUEST['copy_service_id']." not found - could not copy");
-							return;
-						}
-						$newItems = $fromService->getItems();
-						foreach ($newItems as $k => $v) {
-							$newItems[$k]['personnel'] = '';
-							if (!empty($v['componentid'])) {
-								$comp = $GLOBALS['system']->getDBObject('service_component', $v['componentid']);
-								if ($comp) {
-									$newItems[$k]['personnel'] = $this->service->replaceKeywords($comp->getValue('personnel'));
+				if (!empty($_REQUEST['action'])) {
+					$action = $_REQUEST['action'];
+					switch ($action) {
+						case "copy":
+							if (!empty($_REQUEST['copy_service_id']) && !empty($_REQUEST['copy_category_ids'])) {
+								$fromService = new Service((int)$_REQUEST['copy_service_id']);
+								if (!$fromService) {
+									trigger_error("Service ".(int)$_REQUEST['copy_service_id']." not found - could not copy");
+									return;
 								}
+								$newItems = $fromService->getItems();
+								foreach ($newItems as $k => $v) {
+									$newItems[$k]['personnel'] = '';
+									if (!empty($v['componentid'])) {
+										$comp = $GLOBALS['system']->getDBObject('service_component', $v['componentid']);
+										if ($comp) {
+											$newItems[$k]['personnel'] = $this->service->replaceKeywords($comp->getValue('personnel'));
+										}
+									} else {
+										$v['categoryid'] = '!'; // magic value to match filtering of ad hoc items
+									}
+									if (!in_array($v['categoryid'], $_REQUEST['copy_category_ids'])) {
+										unset($newItems[$k]);
+									}
+								}
+								// Add $newItems from copied service to our existing items
+								$this->service->saveItems(array_merge($this->service->getItems(), $newItems));
+								// Retain lock and stay in editing mode
 							}
-
-							if (!in_array($v['categoryid'], $_REQUEST['copy_category_ids'])) {
-								unset($newItems[$k]);
+							break;
+						case "save":
+							$newItems = Array();
+							foreach (array_get($_POST, 'componentid', Array()) as $rank => $compid) {
+								$newItem = Array(
+									'componentid' => $compid,
+									'title' => $_POST['title'][$rank],
+									'personnel' => array_get($_POST['personnel'], $rank),
+									'show_in_handout' => $_POST['show_in_handout'][$rank],
+									'length_mins' => $_POST['length_mins'][$rank],
+									'note' => trim($_POST['note'][$rank]),
+									'heading_text' => trim($_POST['heading_text'][$rank]),
+								);
+								$newItems[] = $newItem;
 							}
-						}
-						$this->service->saveItems($newItems);
-						// Retain lock and stay in editing mode
+							$this->service->saveItems($newItems);
+							$this->service->saveComments(process_widget('service_comments', Array('type' => 'html')));
+							$this->service->releaseLock('items');
+							redirect("services", Array("date" => $this->date, "congregationid" => $this->congregationid, '*' => NULL));  // Redirecting clears &editing=1
+							break;
+						case "cancel":
+							$this->service->releaseLock('items');
+							redirect("services", Array("date" => $this->date, "congregationid" => $this->congregationid, '*' => NULL));  // Redirecting clears &editing=1
+							break;
+						case strncmp($action, 'nav_', 4) === 0:
+							if ($this->editing) $this->service->releaseLock('items');
+							switch ($action) {
+								case "nav_allservices":
+									// 'All services' nav link clicked in edit mode. Release lock and redirect
+									redirect("services__list_all", Array('*' => null));  // Redirecting clears &editing=1
+									break;
+								case "nav_prevdate":
+									// 'Prev' link clicked in edit mode. Release lock, redirect to previous week, retaining
+									// other params.
+									$prevDate = $this->getPrevServiceDate();
+									redirect("services", Array("action" => null, "date" => $prevDate));  // Redirecting clears &editing=1
+									break;
+								case "nav_nextdate":
+									// 'Next' link clicked in edit mode. Release lock, redirect to next week, retaining
+									// other params.
+									$nextDate = $this->getNextServiceDate();
+									redirect("services", Array("action" => null, "date" => $nextDate));  // Redirecting clears &editing=1
+									break;
+								case "nav_prevservice":
+									// 'Prev' link clicked in edit mode. Release lock, redirect to previous week, retaining
+									// other params.
+									$prevCong = $this->getEarlierServiceCong();
+									redirect("services", Array("action" => null, "congregationid" => $prevCong["id"]));  // Redirecting clears &editing=1
+									break;
+								case "nav_nextservice":
+									// 'Next' link clicked in edit mode. Release lock, redirect to next week, retaining
+									// other params.
+									$nextCong = $this->getLaterServiceCong();
+									redirect("services", Array("action" => null, "congregationid" => $nextCong["id"]));  // Redirecting clears &editing=1
+									break;
+							}
+						default:
+							trigger_error("No 'action' parameter found");
+							break;
 					}
 
-					if (!empty($_REQUEST['save_service'])) {
-						$newItems = Array();
-						foreach (array_get($_POST, 'componentid', Array()) as $rank => $compid) {
-							$newItem = Array(
-								'componentid' => $compid,
-								'title' => $_POST['title'][$rank],
-								'personnel' => array_get($_POST['personnel'], $rank),
-								'show_in_handout' => $_POST['show_in_handout'][$rank],
-								'length_mins' => $_POST['length_mins'][$rank],
-								'note'        => trim($_POST['note'][$rank]),
-								'heading_text'     => trim($_POST['heading_text'][$rank]),
-							);
-							$newItems[] = $newItem;
-						}
-						$this->service->saveItems($newItems);
-						$this->service->saveComments(process_widget('service_comments', Array('type' => 'html')));
-						$this->service->releaseLock('items');
-						$this->editing = FALSE;
-					}
 				}
 			}
 		} else {
@@ -123,9 +171,7 @@ class View_services extends View
 			?>
 			<h1>
 				<small class="pull-right">
-					<a href="?view=services__list_all">
-						<i class="icon-chevron-left"></i>Back to service schedule
-					</a>
+					<?php $this->printNav(); ?>
 				</small>
 				<?php echo ents($this->service->toString()); ?>
 			</h1>
@@ -137,7 +183,12 @@ class View_services extends View
 			<?php
 			$this->service->printRunSheetPersonnelFlexi();
 			if ($this->editing) {
-				?>
+			?>
+				<script>
+				$(function() {
+					JethroServicePlannerCopier.init();
+				});
+				</script>
 				<div class="row-fluid" id="service-planner">
 				<?php
 				$this->printRunSheetEditor();
@@ -206,9 +257,6 @@ class View_services extends View
 		?>
 		<div class="span6">
 			<h3>
-				<?php
-				if (empty($items)) {
-					?>
 					<span class="pull-right">
 							<small>
 								<a href="#" data-toggle="modal" data-target="#copy-previous-modal">
@@ -216,14 +264,10 @@ class View_services extends View
 								</a>
 							</small>
 					</span>
-					<?php
-				}
-				?>
 				Run Sheet
 			</h3>
 			<form method="post" id="service-planner-form" data-lock-length="<?php echo db_object::getLockLength() ?>">
 			<div id="service-plan-container">
-			<input type="hidden" name="save_service" value="1" />
 			<table class="table table-bordered table-hover table-condensed no-autofocus" id="service-plan" data-starttime="<?php echo $startTime; ?>">
 				<thead>
 					<tr>
@@ -259,7 +303,7 @@ class View_services extends View
 							<?php
 							if (!empty($item['runsheet_title_format'])) {
 								$title = $item['runsheet_title_format'];
-								$title = str_replace('%title%', $item['title'], $title);
+								$title = $this->service->replaceItemKeywords($title, $item);
 								$title = $this->service->replaceKeywords($title);
 							} else {
 								$title = $item['title'];
@@ -347,7 +391,8 @@ class View_services extends View
 				</tfoot>
 			</table>
 			</div>
-			<button type="submit" class="btn">Save</button>
+			<button type="submit" name="action" value="save" action="submit" class="btn">Save</button>
+			<button type="submit" name="action" value="cancel" class="btn">Cancel</button>
 			</form>
  		</div>
 
@@ -395,20 +440,24 @@ class View_services extends View
 		</div>
 
 		<!-- copy-from-previous modal -->
-		<div class="modal hide fade-in" id="copy-previous-modal" role="dialog">
+		<div class="modal modal-wide hide fade-in" id="copy-previous-modal" role="dialog">
 			<form method="post">
 			<div class="modal-header">
 				<h4>Copy items from another service</h4>
 			</div>
 			<div class="modal-body form-horizontal">
-				<div class="control-group">
-					<label class="control-label">
-						Service to copy from
-					</label>
-					<div class="controls">
+				<div class="row-fluid">
+					<div class="span6">
+						<div class="control-group">
+							<label class="control-label">
+								Service to copy from
+							</label>
+							<div class="controls">
 						<?php
 						$options = Array();
 						$selectedID = NULL;
+						// If we just copied stuff from a service, make that service the default 'Service to copy from'
+						if (!empty($_REQUEST['copy_service_id'])) $selectedID = $_REQUEST['copy_service_id'];
 						$services = $GLOBALS['system']->getDBObjectData('service', Array('>date' => date('Y-m-d', strtotime('-1 year'))), 'AND', 'date DESC');
 						$dummyService = new Service();
 						foreach ($services as $id => $s) {
@@ -424,28 +473,40 @@ class View_services extends View
 						}
 						print_widget('copy_service_id', Array('type' => 'select', 'options' => $options), $selectedID);
 						?>
+							</div>
+						</div>
+						<!-- Modal bg is white and table is transparent, so give previewed service items a yellow bg -->
+						<div id="copy-previous-preview"  style='background-color: #ffffe0;'></div>
 					</div>
-				</div>
-				<div class="control-group">
-					<label class="control-label">
-						Items to copy
-					</label>
-					<div class="controls">
-						<?php
-						$params = Array(
-							'type' => 'reference',
-							'references' => 'service_component_category',
-							'allow_multiple' => TRUE
-						);
-						print_widget('copy_category_ids[]', $params, '*');
-						?>
+					<div class="span6">
+						<div class="control-group">
+							<label class="control-label">
+								Items to copy
+							</label>
+							<div class="controls">
+								<?php
+								$cats = $GLOBALS['system']->getDBOBjectData('service_component_category', Array());
+								foreach ($cats as $id => $c) {
+									$cat_options[$id] = $c['category_name'];
+								}
+								$cat_options['!'] = 'Ad hoc items';
+								$params = Array(
+									'type' => 'select',
+									'options' => $cat_options,
+									'allow_multiple' => TRUE,
+									'height' => count($cat_options),
+								);
+								print_widget('copy_category_ids[]', $params, '*');
+								?>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
-			<div class="modal-footer">
-				<input class="btn" type="submit" value="Copy items" />
-				<input class="btn" type="button" value="Cancel" data-dismiss="modal" />
-			</div>
+				<div class="modal-footer">
+					<button type="submit" name="action" value="copy" action="submit" class="btn">Copy items</button>
+					<input class="btn" type="button" value="Cancel" data-dismiss="modal"/>
+				</div>
 			</form>
 		</div>
 		<?php
@@ -541,7 +602,7 @@ class View_services extends View
 							foreach ($comps as $compid => $comp) {
 								$runsheetTitle = $comp['runsheet_title_format'];
 								if (strlen($runsheetTitle)) {
-									$runsheetTitle = str_replace('%title%', $comp['title'], $runsheetTitle);
+									$runsheetTitle = $this->service->replaceItemKeywords($runsheetTitle, $comp);
 									$runsheetTitle = $this->service->replaceKeywords($runsheetTitle);
 								}
 								$comp['personnel'] = $this->service->replaceKeywords($comp['personnel']);
@@ -605,5 +666,120 @@ class View_services extends View
 		echo '<b>Comments</b>:';
 		print_widget('service_comments', $this->service->fields['comments'], $this->service->getValue('comments'));
 	}
-}
 
+	/**
+	 * Print navigation bar: all services, prev/next congregation, prev/next service date.
+	 * If we are in edit mode, we need to release a lock on the service items before navigating away.
+	 * Therefore all links are to this view (with an action=nav_* param), and the redirect is done server-side potentially after
+	 * releasing the lock.
+	 */
+	private function printNav()
+	{
+?>
+		<table class="table table-condensed no-autofocus">
+			<tr>
+				<td>
+					<a href="<?php echo build_url(Array('action' => 'nav_allservices')); ?>">
+						<i class="icon-th"
+						   title="View all services"></i>
+					</a>
+				</td>
+				<td style="border-left: 0px; padding-right: 1em">
+				</td>
+				<td>
+					<?php if ($prevCong = $this->getEarlierServiceCong()) { ?>
+						<a href="<?php echo build_url(Array('action' => 'nav_prevservice')); ?>">
+							<i class="icon-chevron-left"
+							   title="Earlier congregation: <?php echo ents($prevCong["name"]); ?>"></i>
+						</a>
+					<?php } else { ?>
+						<span> <!-- the span changes the style to 'block: inline' to match the <a> to avoid a 1px offset -->
+							<i class="icon-chevron-left"
+							   title="No earlier congregation on this date"
+							   style="opacity: 0.4"></i>
+						</span>
+					<?php } ?>
+				</td>
+				<td>
+					<?php if ($prevDate = $this->getPrevServiceDate()) { ?>
+						<a href="<?php echo build_url(Array('action' => 'nav_prevdate')); ?>">
+							<i class="icon-chevron-up"
+							   title="Previous week: <?php echo $prevDate; ?>"></i>
+						</a>
+					<?php } else { ?>
+						<i class="icon-chevron-up"
+						   title="Previous week: <?php echo $prevDate; ?>"></i>
+					<?php } ?>
+				</td>
+				<td>
+					<?php if ($nextDate = $this->getNextServiceDate()) { ?>
+						<a href="<?php echo build_url(Array('action' => 'nav_nextdate')); ?>">
+							<i class="icon-chevron-down"
+							   title="Next week: <?php echo $nextDate; ?>"></i>
+						</a>
+					<?php } else { ?>
+						<span> <!-- the span changes the style to 'block: inline' to match the <a> to avoid a 1px offset -->
+						<i class="icon-chevron-down"
+						   style="opacity: 0.4"
+						   title="Next week: <?php echo $nextDate; ?>"></i>
+						</span>
+					<?php } ?>
+				</td>
+				<td>
+					<?php if ($nextCong = $this->getLaterServiceCong()) { ?>
+						<a href="<?php echo build_url(Array('action' => 'nav_nextservice')); ?>">
+							<i class="icon-chevron-right"
+							   title="Later congregation: <?php echo ents($nextCong["name"]) ?>"></i>
+						</a>
+					<?php } else { ?>
+						<span>
+							<i class="icon-chevron-right"
+							   title="No later congregation on this date"
+							   style="opacity: 0.4"></i>
+						</span>
+					<?php } ?>
+				</td>
+			</tr>
+		</table>
+<?php
+	}
+
+	/**
+	 * Get previous congregation (order by meeting time) info. Used for nav links.
+	 * @return mixed Either ["id" => .., "name" => ..] or null.
+	 */
+	private function getEarlierServiceCong()
+	{
+        // Find the first congregation whose meeting time is earlier than ours, that has a service on the same date as ours.
+		return $GLOBALS['db']->queryRow("select id, name from congregation where coalesce(meeting_time, '') != '' and meeting_time < (select meeting_time from congregation where id=".(int)$this->congregationid.") and exists (select 1 from service where congregationid=congregation.id and date='".$this->service->getValue("date")."') order by meeting_time desc limit 1;");
+    }
+
+	/**
+	 * Get next congregation (order by meeting time) info. Used for nav links
+	 * @return mixed Either ["id" => .., "name" => ..] or null.
+	 */
+	private function getLaterServiceCong()
+	{
+		// Find the first congregation whose meeting time is later than ours, that has a service on the same date as ours.
+		return $GLOBALS['db']->queryRow("select id, name from congregation where coalesce(meeting_time, '') != '' and meeting_time > (select meeting_time from congregation where id=".(int)$this->congregationid.") and exists (select 1 from service where congregationid=congregation.id and date='".$this->service->getValue("date")."') order by meeting_time asc limit 1;");
+	}
+
+	/**
+	 * Get the date of the nearest chronologically earlier (usually -7d) service in the same congregation. Used for nav links
+	 * @return ?string Date string in yyyy-mm-dd format
+	 */
+	private function getPrevServiceDate()
+	{
+		return $GLOBALS['db']->queryOne("select date from service where congregationid=".(int)$this->congregationid." and date < '".$this->service->getValue("date")."'  order by date desc limit 1;");
+	}
+
+	/**
+	 * Get the date of the nearest chronologically later (usually +7d) service in the same congregation. Used for nav links
+	 * @return ?string Date string in yyyy-mm-dd format
+	 */
+	private function getNextServiceDate()
+	{
+		return $GLOBALS['db']->queryOne("select date from service where congregationid=".(int)$this->congregationid." and date > '".$this->service->getValue("date")."'  order by date asc limit 1;");
+
+	}
+}

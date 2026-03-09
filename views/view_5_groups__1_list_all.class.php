@@ -68,6 +68,7 @@ class View_Groups__List_All extends View
 					if ($GLOBALS['user_system']->havePerm(PERM_EDITGROUP)) {
 						?>
 						<th></th>
+						<th class="narrow selector form-inline"><input type="checkbox" class="select-all" title="<?php echo _('Select all')?>" /></th>
 						<?php
 					}
 					?>
@@ -80,19 +81,16 @@ class View_Groups__List_All extends View
 					?>
 					<tr<?php echo $tr_class; ?>>
 						<td><?php echo $gid; ?></td>
-						<td><a class="block" href="?view=groups&groupid=<?php echo $gid; ?>"><?php echo $details['name']; ?></a></td>
+						<td><a class="block" href="?view=groups&groupid=<?php echo $gid; ?>"><?php echo ents($details['name']); ?></a></td>
 						<td><?php echo $details['member_count']; ?></td>
 					<?php
 					if ($GLOBALS['user_system']->havePerm(PERM_EDITGROUP)) {
 						?>
 						<td class="narrow action-cell">
 							<a href="?view=_edit_group&groupid=<?php echo $gid; ?>&back_to=groups__list_all"><i class="icon-wrench"></i><?php echo _('Edit');?></a>
-							<form class="min" method="post" action="?view=_edit_group&groupid=<?php echo $gid; ?>">
-								<input type="hidden" name="action" value="delete" />
-								<button type="submit" class="btn-link double-confirm-title"title="Delete this group">
-									<i class="icon-trash"></i><?php echo _('Delete');?>
-								</button>
-							</form>
+						</td>
+						<td>
+							<input type="checkbox" name="groupid[]" value="<?php echo (int)$gid; ?>" />
 						</td>
 						<?php
 					}
@@ -104,6 +102,7 @@ class View_Groups__List_All extends View
 				</tbody>
 			</table>
 			<?php
+
 		}
 	}
 			
@@ -139,7 +138,7 @@ class View_Groups__List_All extends View
 				<?php
 			} else {
 				?>
-				<a class="soft pull-right hidden-phone" href="<?php echo build_url(Array('show_archived' => 0)); ?>"><i class="icon-eye-close"></i><?php echo _('Exclude Archived')?>;</a>
+				<a class="soft pull-right hidden-phone" href="<?php echo build_url(Array('show_archived' => 0)); ?>"><i class="icon-eye-close"></i><?php echo _('Exclude Archived')?></a>
 				<?php
 			}
 
@@ -162,6 +161,7 @@ class View_Groups__List_All extends View
 		?>
 		</div>
 		<div>
+			<form method="post">
 			<?php
 			$cats = $this->_category_data; // + Array(0 => Array('name' => 'Uncategorised Groups'));
 			$this->_printCats();
@@ -175,9 +175,39 @@ class View_Groups__List_All extends View
 				}
 			}
 			?>
+			<div class="form-horizontal bulk-actions">
+				<?php echo _('With selected groups:')?>
+				<select id="bulk-action-chooser" class="no-autofocus">
+					<option><?php echo _('-- Choose Action --')?></option>
+					<option value="move-to-category"><?php echo _('Move to a different category')?></option>
+					<option value="archive"><?php echo _('Archive')?></option>
+					<option value="delete"><?php echo _('Delete altogether')?></option>
+				</select>
+
+				<div class="bulk-action well" id="move-to-category">
+					New category: 
+					<?php
+					$x = new Person_Group();
+					$x->printFieldInterface('categoryid');
+					?>
+					<input type="submit" class="btn" name="action_set_category"
+					value="Go" data-set-form-action="?view=_groups_bulk_update&backto=<?php echo urlencode(http_build_query($_GET)); ?>" />
+
+				</div>
+				<div class="bulk-action well" id="archive">
+					This will set each group's status to "archived". You can un-archive later.
+					<input type="submit" class="btn" name="action_archive"
+					value="Archive now" data-set-form-action="?view=_groups_bulk_update&backto=<?php echo urlencode(http_build_query($_GET)); ?>" />
+				</div>
+				<div class="bulk-action well" id="delete">
+					Deleting groups cannot be undone!  
+					<input type="submit" class="btn" name="action_delete"
+					value="Delete anyway" data-set-form-action="?view=_groups_bulk_update&backto=<?php echo urlencode(http_build_query($_GET)); ?>" />
+				</div>
+
+			</form>
 		</div>
 		<?php
 
 	}
 }
-?>

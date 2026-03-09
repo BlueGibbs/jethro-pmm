@@ -275,7 +275,7 @@ class Installer
 			(@rank:=@rank+5, '',                         'SMTP_USERNAME','Username for SMTP server','text',''),
 			(@rank:=@rank+5, '',                         'SMTP_PASSWORD','Password for SMTP server','text',''),
 
-			(@rank:=@rank+5, 'SMS Gateway',              'SMS_MAX_LENGTH','','int','140'),
+			(@rank:=@rank+5, 'SMS Gateway',              'SMS_MAX_LENGTH','','int','160'),
 			(@rank:=@rank+5, '',                         'SMS_HTTP_URL','URL of the SMS messaging service','text',''),
 			(@rank:=@rank+5, '',                         'SMS_HTTP_HEADER_TEMPLATE','Template for the headers of a request to the SMS messaging service','text_ml',''),
 			(@rank:=@rank+5, '',                         'SMS_HTTP_POST_TEMPLATE','Template for the body of a request to the SMS messaging service','text_ml',''),
@@ -336,7 +336,7 @@ class Installer
 				$fn = JETHRO_ROOT.'/locale/settings/'.$_REQUEST['locale'].'.csv';
 				if (file_exists($fn)) {
 					$fp = fopen($fn, 'r');
-					while ($row = fgetcsv($fp)) {
+					while ($row = fgetcsv($fp, 0, ",", '"', "")) {
 						Config_Manager::saveSetting($row[0], $row[1]);
 					}
 					fclose($fp);
