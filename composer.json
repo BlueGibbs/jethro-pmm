@@ -2,7 +2,8 @@
     "require": {
        "phpoffice/phpword": "v0.18.*",
        "swiftmailer/swiftmailer" : "@stable",
-       "drewm/mailchimp-api" : "@stable"
+       "drewm/mailchimp-api" : "@stable",
+        "league/oauth2-client": "^2.9"
     },
 	"config": {
 		"platform-check" : false,

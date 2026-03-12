@@ -314,3 +314,88 @@ define('SHOW_ERROR_DETAILS', filter_var(env_or_default('SHOW_ERROR_DETAILS', fal
 // Change it to something other than GSM0338 to stop Jethro filtering out non-GSMS0338 characters.
 // define('SMS_ENCODING', 'GSM0338');
 define('SMS_ENCODING', env_or_default('SMS_ENCODING', null));
+
+
+///////////////////////////////////////////////////////////////////////////////
+// OIDC (OpenID Connect) AUTHENTICATION
+//
+// These settings enable Single Sign-On (SSO) using an external Identity
+// Provider (IdP) that supports OpenID Connect.
+//
+// NOTE:
+//  - If OIDC_ENABLE is false, the system will fall back to password-based login.
+//  - Secrets should be provided via environment variables, not hard-coded.
+//
+// MINIMAL ENV
+// The following should auto-detect using provider's .well-known/openid-configuration
+//
+//   OIDC_ENABLE=true
+//   OIDC_ISSUER=https://idp.example.com/realms/myrealm
+//   OIDC_CLIENT_ID=
+//   OIDC_CLIENT_SECRET=
+//
+// If you're behind a load balancer, reverse proxy, or WAF you probably need to set this too:
+//
+//   OIDC_REDIRECT_URI=https://jethro.example.org/members/?oidc-callback=1
+//
+//
+// Example Configs:
+// Keycloak/Authentik: 
+//   set OIDC_ISSUER to the realm's issuer (e.g., https://idp.example.com/realms/myrealm). 
+//   Discovery will populate endpoints.
+//
+// Amazon Cognito:
+//   issuer looks like https://cognito-idp.<region>.amazonaws.com/<userPoolId>.
+//
+// Entra ID (Azure AD):
+//   issuer is https://login.microsoftonline.com/<tenantId>/v2.0. 
+//   Email may appear in preferred_username; set OIDC_EMAIL_CLAIM='preferred_username' if needed.
+//
+// Auth0/Okta: 
+//   issuer is your tenant domain
+//   e.g., https://<yourDomain>/ for Auth0; 
+//         <Okta org URL>/oauth2/default for Okta.
+///////////////////////////////////////////////////////////////////////////////
+
+// Enable or disable OIDC authentication globally
+define('OIDC_ENABLE', env_or_default('OIDC_ENABLE', false));
+
+// Enable verbose OIDC diagnostics (DO NOT enable in production)
+define('OIDC_DEBUG', env_or_default('OIDC_DEBUG', true));
+
+// Either provide explicit endpoints below OR set OIDC_ISSUER and let discovery
+// fill them in from the well-known metadata (recommended).
+define('OIDC_ISSUER', env_or_default('OIDC_ISSUER', null));
+
+// Client credentials & redirect URI
+define('OIDC_CLIENT_ID',     env_or_default('OIDC_CLIENT_ID', null));
+define('OIDC_CLIENT_SECRET', env_or_default('OIDC_CLIENT_SECRET', null));
+define('OIDC_REDIRECT_URI',  env_or_default('OIDC_REDIRECT_URI', BASE_URL . '/members/?oidc-callback=1'));
+
+// Optional: override endpoints (if discovery is not used or you want to pin them)
+define('OIDC_URL_AUTHORIZE', env_or_default('OIDC_URL_AUTHORIZE', null));
+define('OIDC_URL_TOKEN',     env_or_default('OIDC_URL_TOKEN', null));
+define('OIDC_URL_USERINFO',  env_or_default('OIDC_URL_USERINFO', null));
+define('OIDC_URL_JWKS',      env_or_default('OIDC_URL_JWKS', null));
+
+// Requested scopes (must include "openid")
+define('OIDC_SCOPES',        env_or_default('OIDC_SCOPES', 'openid email profile'));
+
+// Claims mapping
+define('OIDC_EMAIL_CLAIM',   env_or_default('OIDC_EMAIL_CLAIM', 'email')); // Azure/Google/Auth0/Keycloak ok
+define('OIDC_NAME_CLAIM',    env_or_default('OIDC_NAME_CLAIM', 'name'));
+
+// Validation knobs
+define('OIDC_CLOCK_SKEW',    env_or_default('OIDC_CLOCK_SKEW', 60)); // seconds
+define('OIDC_AUDIENCE',      env_or_default('OIDC_AUDIENCE', OIDC_CLIENT_ID)); // usually your client_id
+
+// Behaviour
+// If true, users must already exist locally; no auto-provisioning
+define('OIDC_REQUIRE_EXISTING_ACCOUNT', env_or_default('OIDC_REQUIRE_EXISTING_ACCOUNT', true));
+
+// If true, archived users are denied even if OIDC authentication succeeds
+define('OIDC_DENY_ARCHIVED_USERS',      env_or_default('OIDC_DENY_ARCHIVED_USERS', true));
+
+// Cache (for JWKS & discovery). Directory must be writable by PHP.
+define('OIDC_CACHE_DIR',     env_or_default('OIDC_CACHE_DIR', sys_get_temp_dir() . '/oidc_cache'));
+define('OIDC_CACHE_TTL',     env_or_default('OIDC_CACHE_TTL', 86400)); // 24h
