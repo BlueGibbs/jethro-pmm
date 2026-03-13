@@ -16,6 +16,7 @@
  * Dependencies added:
  *  - include/oidc_helpers.php  (discovery, JWKS cache, JWK->PEM)
  *  - include/oidc_token.php    (JWT parse + signature + claim validation)
+ *  - league::oauth2-client     (PHP League OAuth 2 client)
  */
 
 declare(strict_types=1);
@@ -26,47 +27,58 @@ require_once JETHRO_ROOT.'/include/abstract_user_system.class.php';
 /**
  * Mask a string keeping the first $keepStart and last $keepEnd characters.
  * Uses mbstring if available for proper UTF-8 handling.
+ * Used for enhanced (But still secure) debug logging
+ *
+ * TODO: Move to helper file
  */
-function mask_value($value, int $keepStart = 3, int $keepEnd = 3, string $mask = '***', string $encoding = 'UTF-8') {
-    if (!is_string($value)) {
-        // Decide how you want to handle non-strings:
-        // return $value; // or cast to string
-        $value = (string)$value;
-    }
-
-    // Prefer mb_* if available
-    $len = function_exists('mb_strlen') ? mb_strlen($value, $encoding) : strlen($value);
-    $sub = function($str, $start, $length = null) use ($encoding) {
-        if (function_exists('mb_substr')) {
-            return $length === null ? mb_substr($str, $start, null, $encoding)
-                                    : mb_substr($str, $start, $length, $encoding);
-        } else {
-            return $length === null ? substr($str, $start)
-                                    : substr($str, $start, $length);
+if (!function_exists('mask_value')) {
+    function mask_value($value, int $keepStart = 3, int $keepEnd = 3, string $mask = '***', string $encoding = 'UTF-8') {
+        if (!is_string($value)) {
+            // Decide how you want to handle non-strings:
+            // return $value; // or cast to string
+            $value = (string)$value;
         }
-    };
 
-    // If the string is short, avoid over-exposing content.
-    if ($len <= 0) {
-        return $mask;
-    }
+        // Prefer mb_* if available
+        $len = function_exists('mb_strlen') ? mb_strlen($value, $encoding) : strlen($value);
+        $sub = function($str, $start, $length = null) use ($encoding) {
+            if (function_exists('mb_substr')) {
+                return $length === null ? mb_substr($str, $start, null, $encoding)
+                                        : mb_substr($str, $start, $length, $encoding);
+            } else {
+                return $length === null ? substr($str, $start)
+                                        : substr($str, $start, $length);
+            }
+        };
 
-    // If total keep exceeds length, compress the strategy:
-    if ($keepStart + $keepEnd >= $len) {
-        // Keep just the first character and last character when possible.
-        if ($len <= 2) {
-            // Too short - fully mask
+        // If the string is short, avoid over-exposing content.
+        if ($len <= 0) {
             return $mask;
         }
-        return $sub($value, 0, 1) . $mask . $sub($value, -1);
-    }
 
-    $start = $sub($value, 0, $keepStart);
-    $end   = $sub($value, -$keepEnd);
-    return $start . $mask . $end;
+        // If total keep exceeds length, compress the strategy:
+        if ($keepStart + $keepEnd >= $len) {
+            // Keep just the first character and last character when possible.
+            if ($len <= 2) {
+                // Too short - fully mask
+                return $mask;
+            }
+            return $sub($value, 0, 1) . $mask . $sub($value, -1);
+        }
+
+        $start = $sub($value, 0, $keepStart);
+        $end   = $sub($value, -$keepEnd);
+        return $start . $mask . $end;
+    }
 }
 
-// --- OIDC diagnostics helper ---
+/**
+ * OIDC diagnostics helper
+ * Simple handler for logging arrays. Includes sanitisation/masking
+ * for well-known sensitive values
+ *
+ * TODO: Move to helper file
+ */
 if (!function_exists('oidc_diag')) {
     function oidc_diag(string $msg, array $context = []): void {
         $prefix = '[OIDC] ';
@@ -113,6 +125,10 @@ class Member_User_System extends Abstract_User_System
         $this->_setAuthMember($user_details);
     }
 
+    /**
+     * Basic checks of OIDC config constants
+     * Attempts to auto-detect missing details using IdP's /.well-known/openid-configuration endpoint
+     */
     private function _checkOidcConfigAndDiscover(): array
     {
         if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
@@ -752,12 +768,11 @@ class Member_User_System extends Abstract_User_System
         }
     }
 
-    // Placeholder: your app likely defines this
-    protected function _loadPermissionLevels(): void
-    {
-        // Load permission levels for the current user from DB or cache
-    }
-
-    // Error holder used by various handlers
+    /**
+     * Error holder used by various handlers
+     *
+     * TODO: Move to Abstract_User_System ???
+     *       Should there be some more generic error logging/handling?
+    */
     private $_error = '';
 }
